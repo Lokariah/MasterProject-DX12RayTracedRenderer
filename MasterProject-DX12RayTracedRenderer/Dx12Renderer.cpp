@@ -11,6 +11,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
         return renderer.Run();
     }
     catch (DxException& e) {
+        if (e.errorCode == DXGI_ERROR_DEVICE_REMOVED || e.errorCode == DXGI_ERROR_DEVICE_RESET) {
+            renderer.DeviceRemovedReason();
+        }
         MessageBox(nullptr, e.ToString().c_str(), L"HR Failed", MB_OK);
         return 0;
     }
@@ -22,6 +25,17 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
     if(!InitialiseDirect3D()) return false;
     OnResize();
     return true;
+}
+
+void Dx12Renderer::DeviceRemovedReason()
+{
+    HRESULT reason = mD3DDevice->GetDeviceRemovedReason();
+#if defined(_DEBUG)
+    wchar_t outString[100];
+    size_t size = 100;
+    swprintf_s(outString, size, L"Device removed! DXGI_ERROR code: 0x%X\n", reason);
+    OutputDebugStringW(outString);
+#endif
 }
 
 bool Dx12Renderer::InitialiseDirect3D()
@@ -84,7 +98,7 @@ bool Dx12Renderer::InitialiseDirect3D()
     return true;
 }
 
-void Dx12Renderer::Draw()
+void Dx12Renderer::Draw(const Timer gameTimer)
 {
     ThrowIfFailed(mDirectCmdListAlloc->Reset());
     ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
@@ -115,6 +129,10 @@ void Dx12Renderer::Draw()
     ThrowIfFailed(mSwapChain->Present(0, 0));
     mCurrBackBuffer = (mCurrBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
     FlushCommandQueue();
+}
+
+void Dx12Renderer::Update(const Timer gameTimer)
+{
 }
 
 void Dx12Renderer::CreateCommandObjects()
@@ -276,6 +294,27 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12Renderer::DepthStencilView() const
     return mDSVHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
+void Dx12Renderer::CalculateFrameStats()
+{
+    static int frameCount = 0;
+    static float timeElapsed = 0.0f;
+
+    frameCount++;
+
+    if ((mGameTimer.TotalTime() - timeElapsed) >= 1.0f) {
+        float fps = float(frameCount);
+        float mspf = 1000.0f / fps;
+
+        std::wstring fpsStr = std::to_wstring(fps);
+        std::wstring mspfStr = std::to_wstring(mspf);
+        std::wstring windowText = mMainWndCaption + L"  fps: " + fpsStr + L"    mspf: " + mspfStr;
+
+        SetWindowText(m_mainWindowHWND, windowText.c_str());
+        frameCount = 0;
+        timeElapsed += 1.0f;
+    }
+}
+
 bool Dx12Renderer::InitWinApp(HINSTANCE hInstance, int show)
 {
     WNDCLASS wndClass;
@@ -297,7 +336,7 @@ bool Dx12Renderer::InitWinApp(HINSTANCE hInstance, int show)
 
     m_mainWindowHWND = CreateWindow(
         wndClass.lpszClassName,
-        L"MastersProjectRenderer",
+        mMainWndCaption.c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -321,7 +360,8 @@ bool Dx12Renderer::InitWinApp(HINSTANCE hInstance, int show)
 int Dx12Renderer::Run()
 {
     MSG msg = {0};
-    bool bRet = 1;
+    mGameTimer.Reset();
+
     while (msg.message != WM_QUIT) {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -330,7 +370,9 @@ int Dx12Renderer::Run()
             //break;
         }
         else {
-            Draw();
+            mGameTimer.Tick();
+            CalculateFrameStats();
+            Draw(mGameTimer);
         }
     }
     return (int)msg.wParam;

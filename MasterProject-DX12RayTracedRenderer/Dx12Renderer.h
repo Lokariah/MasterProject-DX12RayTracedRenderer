@@ -4,10 +4,12 @@
 #include <dxgi1_4.h>
 #include <DirectXColors.h>
 #include <wrl.h>
-//#include "Win32Wnd.h"
 #include <d3dcompiler.h>
 #include <comdef.h>
 #include <string>
+
+//#include "Win32Wnd.h"
+#include "Timer.h"
 
 
 //Frank D Luna Helper Functions (swap for own post triangle)
@@ -45,10 +47,11 @@ class Dx12Renderer
 {
 public:
 	bool Initialise(HINSTANCE hInstance, int nShowCmd);
-
+	void DeviceRemovedReason();
 protected:
 	bool InitialiseDirect3D();
-	void Draw();
+	void Draw(const Timer gameTimer);
+	void Update(const Timer gameTimer);
 	void CreateCommandObjects();
 	void CreateSwapChain();
 	void CreateRTVAndDSVDescriptorHeaps();
@@ -58,6 +61,8 @@ protected:
 	ID3D12Resource* CurrentBackBuffer() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
+
+	void CalculateFrameStats();
 
 	UINT mRTVDescriptorSize = 0;
 	UINT mDSVDescriptorSize = 0;
@@ -90,16 +95,7 @@ protected:
 	int mClientWidth = 1980;
 	int mClientHeight = 1080;
 
-	//1- ID3D12Device
-	//2- ID3D12Fence
-	//3- 4X MSAA
-	//4- CommandQueue, CommandListAllocator, CommandList
-	//5- SwapChain
-	//6- DescriptorHeaps
-	//7- BackBuffer RTV
-	//8- Depth/Stencil Buffer+View
-	//9- ViewportScissor
-
+	Timer mGameTimer;
 
 	//WindowsClassTemporaryAddedHere
 public:
@@ -111,6 +107,6 @@ protected:
 
 private:
 	static HWND m_mainWindowHWND;
-
+	std::wstring mMainWndCaption = L"Masters Project - DX12 Renderer ";
 };
 

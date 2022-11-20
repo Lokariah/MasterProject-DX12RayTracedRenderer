@@ -34,4 +34,6 @@
 .vs
 MastersProject-RayTracer
 Debug
-MastersProject-DX12RayTracedRenderer/Debug
+MasterProject-DX12RayTracedRenderer/Debug
+MasterProject-DX12RayTracedRenderer/x64
+
