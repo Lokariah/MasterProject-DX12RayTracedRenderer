@@ -1,66 +1,55 @@
 #pragma once
-#include <d3d12.h>
-#include "d3dx12.h"
-#include <dxgi1_4.h>
-#include <DirectXColors.h>
-#include <wrl.h>
-#include <d3dcompiler.h>
-#include <comdef.h>
-#include <string>
+#include "Utility.h"
 
 //#include "Win32Wnd.h"
+#include "UploadBuffer.h"
 #include "Timer.h"
-
-
-//Frank D Luna Helper Functions (swap for own post triangle)
-inline std::wstring AnsiToWString(const std::string& str) {
-	WCHAR buffer[512];
-	MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, buffer, 512);
-	return std::wstring(buffer);
-}
-
-class DxException {
-public:
-	DxException() = default;
-	DxException(HRESULT hr, const std::wstring& functionName, const std::wstring& fileName, int lineNum):
-		errorCode(hr), functionName(functionName), fileName(fileName), lineNum(lineNum){}
-	std::wstring ToString() const {
-		_com_error err(errorCode);
-		std::wstring msg = err.ErrorMessage();
-		return functionName + L" failed in " + fileName + L"; line " + std::to_wstring(lineNum) + L"; error: " + msg;
-	};
-	HRESULT errorCode = S_OK;
-	std::wstring functionName;
-	std::wstring fileName;
-	int lineNum = -1;
-};
-
-#ifndef ThrowIfFailed
-#define ThrowIfFailed(x) {										\
-HRESULT hr_ = (x);												\
-std::wstring wfn = AnsiToWString(__FILE__);						\
-if (FAILED(hr_))throw DxException(hr_, L#x, wfn, __LINE__);		\
-}																
-#endif
 
 class Dx12Renderer
 {
 public:
+	Dx12Renderer(HINSTANCE hInstance);
+	Dx12Renderer(const Dx12Renderer& temp) = delete;
+	Dx12Renderer operator= (const Dx12Renderer& temp) = delete;
+	~Dx12Renderer();
+
 	bool Initialise(HINSTANCE hInstance, int nShowCmd);
 	void DeviceRemovedReason();
+
 protected:
+
+	struct vertexLayout {
+		DirectX::XMFLOAT3 position;
+		DirectX::XMFLOAT4 colour;
+	};
+
+	struct constants {
+		DirectX::XMFLOAT4X4 worldViewProj = IDENTITY_MATRIX;
+	};
+
 	bool InitialiseDirect3D();
-	void Draw(const Timer gameTimer);
+	void OnResize();
 	void Update(const Timer gameTimer);
+	void Draw(const Timer gameTimer);
+
 	void CreateCommandObjects();
 	void CreateSwapChain();
 	void CreateRTVAndDSVDescriptorHeaps();
-	void OnResize();
 	void FlushCommandQueue();
 
+	void BuildDescriptorHeaps();
+	void BuildConstantBuffers();
+	void BuildRootSignature();
+	void BuildShadersAndInputLayout();
+	void BuildBoxGeometry();
+	void BuildPSO();
+
+	float GetAspectRatio();
 	ID3D12Resource* CurrentBackBuffer() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
+
+	ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
 
 	void CalculateFrameStats();
 
@@ -77,17 +66,37 @@ protected:
 	int mCurrBackBuffer = 0;
 	UINT64 mCurrFence = 0;
 
-	Microsoft::WRL::ComPtr<IDXGIFactory4>				mDXGIFactory;
-	Microsoft::WRL::ComPtr<ID3D12Device>				mD3DDevice;
-	Microsoft::WRL::ComPtr<IDXGISwapChain>				mSwapChain;
-	Microsoft::WRL::ComPtr<ID3D12Resource>				mSwapChainBuffer[SWAP_CHAIN_BUFFER_COUNT];
-	Microsoft::WRL::ComPtr<ID3D12Resource>				mDepthStencilBuffer;
-	Microsoft::WRL::ComPtr<ID3D12Fence>					mFence;
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue>			mCommandQueue;
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator>		mDirectCmdListAlloc;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>   mCommandList;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>		mRTVHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>		mDSVHeap;
+	ComPtr<IDXGIFactory4>				mDXGIFactory;
+	ComPtr<ID3D12Device>				mD3DDevice;
+	ComPtr<IDXGISwapChain>				mSwapChain;
+	ComPtr<ID3D12Resource>				mSwapChainBuffer[SWAP_CHAIN_BUFFER_COUNT];
+	ComPtr<ID3D12Resource>				mDepthStencilBuffer;
+	ComPtr<ID3D12Fence>					mFence;
+	ComPtr<ID3D12CommandQueue>			mCommandQueue;
+	ComPtr<ID3D12CommandAllocator>		mDirectCmdListAlloc;
+	ComPtr<ID3D12GraphicsCommandList>   mCommandList;
+	ComPtr<ID3D12RootSignature>			mRootSignature;
+	ComPtr<ID3D12DescriptorHeap>		mRTVHeap;
+	ComPtr<ID3D12DescriptorHeap>		mDSVHeap;
+	ComPtr<ID3D12DescriptorHeap>		mCBVHeap;
+
+	std::unique_ptr<UploadBuffer<constants>> mObjectCB;
+	std::unique_ptr<MeshGeometry> mBoxGeometry;
+	ComPtr<ID3DBlob> mvsByteCode;
+	ComPtr<ID3DBlob> mpsByteCode;
+
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+	ComPtr<ID3D12PipelineState> mPSO;
+
+	DirectX::XMFLOAT4X4 mWorld = IDENTITY_MATRIX;
+	DirectX::XMFLOAT4X4 mView  = IDENTITY_MATRIX;
+	DirectX::XMFLOAT4X4 mProj  = IDENTITY_MATRIX;
+
+	float mTheta = 1.5f * DirectX::XM_PI;
+	float mPhi = DirectX::XM_PIDIV4;
+	float mRadius = 5.0f;
+
+	POINT mLastMousePos;
 
 	D3D12_VIEWPORT vp;
 	D3D12_RECT mScissorRect;
