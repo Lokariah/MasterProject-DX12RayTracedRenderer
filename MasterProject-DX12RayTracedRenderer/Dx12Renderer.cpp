@@ -1,7 +1,5 @@
 #include "Dx12Renderer.h"
 
-using Microsoft::WRL::ComPtr;
-
 HWND Dx12Renderer::m_mainWindowHWND = nullptr;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd) {
@@ -22,6 +20,46 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
         }
         MessageBox(nullptr, e.ToString().c_str(), L"HR Failed", MB_OK);
         return 0;
+    }
+}
+
+Dx12Renderer::Dx12Renderer(HINSTANCE hInstance) : mAppInst(hInstance)
+{
+    //assert(mApp == nullptr);
+    //mApp = this;
+}
+
+Dx12Renderer::~Dx12Renderer()
+{
+    if (mD3DDevice != nullptr) FlushCommandQueue();
+}
+
+//Dx12Renderer* Dx12Renderer::GetApp()
+//{
+//    return mApp;
+//}
+//
+HINSTANCE Dx12Renderer::AppInst() const
+{
+    return mAppInst;
+}
+
+HWND Dx12Renderer::MainWnd() const
+{
+    return m_mainWindowHWND;
+}
+
+bool Dx12Renderer::Get4xMsaaState() const
+{
+    return m4xMSAAState;
+}
+
+void Dx12Renderer::Set4xMsaaState(bool value)
+{
+    if (m4xMSAAState != value) {
+        m4xMSAAState = value;
+        CreateSwapChain();
+        OnResize();
     }
 }
 
@@ -143,8 +181,10 @@ void Dx12Renderer::Draw(const Timer gameTimer)
 
     mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
     
-    mCommandList->IASetVertexBuffers(0, 1, &mBoxGeometry->VertexBufferView());
-    mCommandList->IASetIndexBuffer(&mBoxGeometry->IndexBufferView());
+    auto vertexBufferView = mBoxGeometry->VertexBufferView();
+    auto indexBufferView = mBoxGeometry->IndexBufferView();
+    mCommandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+    mCommandList->IASetIndexBuffer(&indexBufferView);
     mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     mCommandList->SetGraphicsRootDescriptorTable(0, mCBVHeap->GetGPUDescriptorHandleForHeapStart());
@@ -386,8 +426,8 @@ void Dx12Renderer::BuildShadersAndInputLayout()
 {
     HRESULT hr = S_OK;
 
-    mvsByteCode = Utility::CompileShader(L"Shaders\\Colour.hlsl", nullptr, "VS", "vs_5_0");
-    mpsByteCode = Utility::CompileShader(L"Shaders\\Colour.hlsl", nullptr, "PS", "ps_5_0");
+    mvsByteCode = Utility::CompileShader(L"shaders\\cube_vs.hlsl", nullptr, "VS", "vs_5_0");
+    mpsByteCode = Utility::CompileShader(L"shaders\\cube_ps.hlsl", nullptr, "PS", "ps_5_0");
 
     mInputLayout = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
@@ -395,6 +435,93 @@ void Dx12Renderer::BuildShadersAndInputLayout()
         { "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
     };
+}
+
+void Dx12Renderer::BuildBoxGeometry()
+{
+    std::array<vertexLayout, 8> vertices = {
+        vertexLayout({DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f), DirectX::XMFLOAT4(DirectX::Colors::White)}),
+        vertexLayout({DirectX::XMFLOAT3(-1.0f, +1.0f, -1.0f), DirectX::XMFLOAT4(DirectX::Colors::Black)}),
+        vertexLayout({DirectX::XMFLOAT3(+1.0f, +1.0f, -1.0f), DirectX::XMFLOAT4(DirectX::Colors::Red)}),
+        vertexLayout({DirectX::XMFLOAT3(+1.0f, -1.0f, -1.0f), DirectX::XMFLOAT4(DirectX::Colors::Green)}),
+        vertexLayout({DirectX::XMFLOAT3(-1.0f, -1.0f, +1.0f), DirectX::XMFLOAT4(DirectX::Colors::Blue)}),
+        vertexLayout({DirectX::XMFLOAT3(-1.0f, +1.0f, +1.0f), DirectX::XMFLOAT4(DirectX::Colors::Yellow)}),
+        vertexLayout({DirectX::XMFLOAT3(+1.0f, +1.0f, +1.0f), DirectX::XMFLOAT4(DirectX::Colors::Cyan)}),
+        vertexLayout({DirectX::XMFLOAT3(+1.0f, -1.0f, +1.0f), DirectX::XMFLOAT4(DirectX::Colors::Magenta)})};
+
+    std::array<std::uint16_t, 36> indices = {
+        0, 1, 2,
+        0, 2, 3,
+
+        4, 6, 5,
+        4, 7, 6,
+
+        4, 5, 1,
+        4, 1, 0,
+
+        3, 2, 6,
+        3, 6, 7,
+
+        1, 5, 6,
+        1, 6, 2,
+
+        4, 0, 3,
+        4, 3, 7
+    };
+
+    const UINT vbByteSize = (UINT)vertices.size() * sizeof(vertexLayout);
+    const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+    mBoxGeometry = std::make_unique<MeshGeometry>();
+    mBoxGeometry->name = "boxGeometry";
+
+    ThrowIfFailed(D3DCreateBlob(vbByteSize, &mBoxGeometry->vertexBufferCPU));
+    CopyMemory(mBoxGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+    ThrowIfFailed(D3DCreateBlob(ibByteSize, &mBoxGeometry->indexBufferCPU));
+    CopyMemory(mBoxGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+    mBoxGeometry->vertexBufferGPU = CreateDefaultBuffer(mD3DDevice.Get(), mCommandList.Get(), vertices.data(), vbByteSize, mBoxGeometry->vertexBufferUploader);
+    mBoxGeometry->indexBufferGPU  = CreateDefaultBuffer(mD3DDevice.Get(), mCommandList.Get(), indices.data(),  ibByteSize, mBoxGeometry->indexBufferUploader);
+
+    mBoxGeometry->vertexByteStride = sizeof(vertexLayout);
+    mBoxGeometry->vertexBufferByteSize = vbByteSize;
+    mBoxGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
+    mBoxGeometry->indexBufferByteSize = ibByteSize;
+
+    SubmeshGeometry subMesh;
+    subMesh.IndexCount = (UINT)indices.size();
+    subMesh.StartIndexLocation = 0;
+    subMesh.BaseVertexLocation = 0;
+
+    mBoxGeometry->drawArgs["box"] = subMesh;
+}
+
+void Dx12Renderer::BuildPSO()
+{
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
+    ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+    psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+    psoDesc.pRootSignature = mRootSignature.Get();
+    psoDesc.VS = {
+        reinterpret_cast<BYTE*>(mvsByteCode->GetBufferPointer()),
+        mvsByteCode->GetBufferSize()
+    };
+    psoDesc.PS = {
+        reinterpret_cast<BYTE*>(mpsByteCode->GetBufferPointer()),
+        mpsByteCode->GetBufferSize()
+    };
+    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    psoDesc.SampleMask = UINT_MAX;
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.NumRenderTargets = 1;
+    psoDesc.RTVFormats[0] = mBackBufferFormat;
+    psoDesc.SampleDesc.Count = m4xMSAAState ? 4 : 1;
+    psoDesc.SampleDesc.Quality = m4xMSAAState ? (m4xMSAAQuality - 1) : 0;
+    psoDesc.DSVFormat = mDepthStencilFormat;
+    ThrowIfFailed(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO)));
 }
 
 float Dx12Renderer::GetAspectRatio()
@@ -423,19 +550,20 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12Renderer::DepthStencilView() const
 ComPtr<ID3D12Resource> Dx12Renderer::CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer)
 {
     ComPtr<ID3D12Resource> defaultBuffer;
-    
+    auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
     ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        &heapProperties,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+        &bufferDesc,
         D3D12_RESOURCE_STATE_COMMON,
         nullptr,
         IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
 
     ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        &heapProperties,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+        &bufferDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(uploadBuffer.GetAddressOf())));
@@ -447,7 +575,7 @@ ComPtr<ID3D12Resource> Dx12Renderer::CreateDefaultBuffer(ID3D12Device* device, I
         D3D12_RESOURCE_STATE_COPY_DEST);
     mCommandList->ResourceBarrier(1, &barrier);
     UpdateSubresources<1>(cmdList, defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subResourceData);
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
+    barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
         D3D12_RESOURCE_STATE_COPY_DEST,
         D3D12_RESOURCE_STATE_GENERIC_READ);
     mCommandList->ResourceBarrier(1, &barrier);

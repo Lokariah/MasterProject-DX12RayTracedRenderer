@@ -1,17 +1,21 @@
 #pragma once
-#include <d3d12.h>
-#include <DirectXMath.h>
-#include "d3dx12.h"
+#include <Windows.h>
+#include <wrl.h>
+#include <comdef.h>
 #include <dxgi1_4.h>
+#include <d3d12.h>
+#include <d3dcompiler.h>
+#include <DirectXMath.h>
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
-#include <wrl.h>
-#include <d3dcompiler.h>
-#include <comdef.h>
 #include <string>
 #include <memory>
 #include <vector>
+#include <array>
 #include <unordered_map>
+#include "d3dx12.h"
+
+using Microsoft::WRL::ComPtr;
 
 //Frank D Luna Helper Functions (swap for own post triangle)
 inline std::wstring AnsiToWString(const std::string& str) {
@@ -28,6 +32,22 @@ if (FAILED(hr_))throw DxException(hr_, L#x, wfn, __LINE__);		\
 }																
 #endif
 
+class DxException {
+public:
+	DxException() = default;
+	DxException(HRESULT hr, const std::wstring& functionName, const std::wstring& fileName, int lineNum) :
+		errorCode(hr), functionName(functionName), fileName(fileName), lineNum(lineNum) {}
+	std::wstring ToString() const {
+		_com_error err(errorCode);
+		std::wstring msg = err.ErrorMessage();
+		return functionName + L" failed in " + fileName + L"; line " + std::to_wstring(lineNum) + L"; error: " + msg;
+	};
+	HRESULT errorCode = S_OK;
+	std::wstring functionName;
+	std::wstring fileName;
+	int lineNum = -1;
+};
+
 class Utility
 {
 public:
@@ -35,7 +55,7 @@ public:
 		return (byteSize + 255) & ~255;
 	}
 	
-	ComPtr<ID3DBlob> CompileShader(
+	static ComPtr<ID3DBlob> CompileShader(
 		const std::wstring& fileName,
 		const D3D_SHADER_MACRO* defines,
 		const std::string& entryPoint,
@@ -62,23 +82,6 @@ const DirectX::XMFLOAT4X4 IDENTITY_MATRIX = {
 		0.0f, 0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 0.0f, 1.0f
 };
-
-class DxException {
-public:
-	DxException() = default;
-	DxException(HRESULT hr, const std::wstring& functionName, const std::wstring& fileName, int lineNum) :
-		errorCode(hr), functionName(functionName), fileName(fileName), lineNum(lineNum) {}
-	std::wstring ToString() const {
-		_com_error err(errorCode);
-		std::wstring msg = err.ErrorMessage();
-		return functionName + L" failed in " + fileName + L"; line " + std::to_wstring(lineNum) + L"; error: " + msg;
-	};
-	HRESULT errorCode = S_OK;
-	std::wstring functionName;
-	std::wstring fileName;
-	int lineNum = -1;
-};
-
 
 struct SubmeshGeometry {
 	UINT IndexCount = 0;

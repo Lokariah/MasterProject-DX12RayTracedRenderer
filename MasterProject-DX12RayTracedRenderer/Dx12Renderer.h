@@ -13,6 +13,13 @@ public:
 	Dx12Renderer operator= (const Dx12Renderer& temp) = delete;
 	~Dx12Renderer();
 
+	//static Dx12Renderer* GetApp();
+	HINSTANCE AppInst() const;
+	HWND MainWnd() const;
+
+	bool Get4xMsaaState() const;
+	void Set4xMsaaState(bool value);
+
 	bool Initialise(HINSTANCE hInstance, int nShowCmd);
 	void DeviceRemovedReason();
 
@@ -52,6 +59,9 @@ protected:
 	ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
 
 	void CalculateFrameStats();
+
+	// Dx12Renderer* mApp;
+	HINSTANCE mAppInst = nullptr;
 
 	UINT mRTVDescriptorSize = 0;
 	UINT mDSVDescriptorSize = 0;
