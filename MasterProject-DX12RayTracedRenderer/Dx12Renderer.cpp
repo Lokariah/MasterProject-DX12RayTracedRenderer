@@ -385,9 +385,9 @@ void Dx12Renderer::BuildDescriptorHeaps()
 
 void Dx12Renderer::BuildConstantBuffers()
 {
-    mObjectCB = std::make_unique<UploadBuffer<constants>>(mD3DDevice.Get(), 1, true);
-
     UINT objCBByteSize = Utility::CalcConstantBufferByteSize(sizeof(constants));
+
+    mObjectCB = std::make_unique<UploadBuffer<constants>>(mD3DDevice.Get(), 1, true);
 
     D3D12_GPU_VIRTUAL_ADDRESS cbAddress = mObjectCB->Resource()->GetGPUVirtualAddress();
     int boxCBufIndex = 0;
@@ -395,7 +395,7 @@ void Dx12Renderer::BuildConstantBuffers()
 
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
     cbvDesc.BufferLocation = cbAddress;
-    cbvDesc.SizeInBytes = Utility::CalcConstantBufferByteSize(sizeof(constants));
+    cbvDesc.SizeInBytes = objCBByteSize;
 
     mD3DDevice->CreateConstantBufferView(&cbvDesc, mCBVHeap->GetCPUDescriptorHandleForHeapStart());
 }
@@ -426,8 +426,8 @@ void Dx12Renderer::BuildShadersAndInputLayout()
 {
     HRESULT hr = S_OK;
 
-    mvsByteCode = Utility::CompileShader(L"shaders\\cube_vs.hlsl", nullptr, "VS", "vs_5_0");
-    mpsByteCode = Utility::CompileShader(L"shaders\\cube_ps.hlsl", nullptr, "PS", "ps_5_0");
+    mvsByteCode = Utility::CompileShader(L"cube_vs.hlsl", nullptr, "VS", "vs_5_0");
+    mpsByteCode = Utility::CompileShader(L"cube_ps.hlsl", nullptr, "PS", "ps_5_0");
 
     mInputLayout = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
@@ -560,6 +560,7 @@ ComPtr<ID3D12Resource> Dx12Renderer::CreateDefaultBuffer(ID3D12Device* device, I
         nullptr,
         IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
 
+    heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     ThrowIfFailed(device->CreateCommittedResource(
         &heapProperties,
         D3D12_HEAP_FLAG_NONE,

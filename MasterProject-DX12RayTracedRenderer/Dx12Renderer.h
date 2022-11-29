@@ -76,19 +76,19 @@ protected:
 	int mCurrBackBuffer = 0;
 	UINT64 mCurrFence = 0;
 
-	ComPtr<IDXGIFactory4>				mDXGIFactory;
-	ComPtr<ID3D12Device>				mD3DDevice;
-	ComPtr<IDXGISwapChain>				mSwapChain;
+	ComPtr<IDXGIFactory4>				mDXGIFactory = nullptr;
+	ComPtr<ID3D12Device>				mD3DDevice = nullptr;
+	ComPtr<IDXGISwapChain>				mSwapChain = nullptr;
 	ComPtr<ID3D12Resource>				mSwapChainBuffer[SWAP_CHAIN_BUFFER_COUNT];
-	ComPtr<ID3D12Resource>				mDepthStencilBuffer;
-	ComPtr<ID3D12Fence>					mFence;
-	ComPtr<ID3D12CommandQueue>			mCommandQueue;
-	ComPtr<ID3D12CommandAllocator>		mDirectCmdListAlloc;
-	ComPtr<ID3D12GraphicsCommandList>   mCommandList;
-	ComPtr<ID3D12RootSignature>			mRootSignature;
-	ComPtr<ID3D12DescriptorHeap>		mRTVHeap;
-	ComPtr<ID3D12DescriptorHeap>		mDSVHeap;
-	ComPtr<ID3D12DescriptorHeap>		mCBVHeap;
+	ComPtr<ID3D12Resource>				mDepthStencilBuffer = nullptr;
+	ComPtr<ID3D12Fence>					mFence = nullptr;
+	ComPtr<ID3D12CommandQueue>			mCommandQueue = nullptr;
+	ComPtr<ID3D12CommandAllocator>		mDirectCmdListAlloc = nullptr;
+	ComPtr<ID3D12GraphicsCommandList>   mCommandList = nullptr;
+	ComPtr<ID3D12RootSignature>			mRootSignature = nullptr;
+	ComPtr<ID3D12DescriptorHeap>		mRTVHeap = nullptr;
+	ComPtr<ID3D12DescriptorHeap>		mDSVHeap = nullptr;
+	ComPtr<ID3D12DescriptorHeap>		mCBVHeap = nullptr;
 
 	std::unique_ptr<UploadBuffer<constants>> mObjectCB;
 	std::unique_ptr<MeshGeometry> mBoxGeometry;
