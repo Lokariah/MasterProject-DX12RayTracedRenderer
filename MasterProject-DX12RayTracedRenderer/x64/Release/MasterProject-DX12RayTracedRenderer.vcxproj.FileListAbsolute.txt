@@ -1,0 +1,5 @@
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.MdMergeInputs.cache
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_plat.cache
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_comp.cache

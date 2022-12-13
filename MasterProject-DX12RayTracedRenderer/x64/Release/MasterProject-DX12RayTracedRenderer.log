@@ -1,0 +1,8 @@
+﻿  Dx12Renderer.cpp
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(751,57): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
+  Generating code
+  1 of 1271 functions (<0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    2 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  MasterProject-DX12RayTracedRenderer.vcxproj -> D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe
