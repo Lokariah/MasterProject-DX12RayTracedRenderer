@@ -9,8 +9,8 @@ public:
 	void Start();
 	void Stop();
 
-	float TotalTime();
-	float FrameTime();
+	float TotalTime()const;
+	float FrameTime()const;
 
 private:
 	bool mPaused;

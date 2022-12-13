@@ -55,13 +55,13 @@ void Timer::Stop()
 	}
 }
 
-float Timer::TotalTime()
+float Timer::TotalTime()const
 {
 	if (mPaused) return (float(((mStopTime - mPausedTime) - mBaseTime) * mSecondsPerCount));
 	else return (float(((mCurrTime - mPausedTime) - mBaseTime) * mSecondsPerCount));
 }
 
-float Timer::FrameTime()
+float Timer::FrameTime()const
 {
 	return float(mFrameTime);
 }
