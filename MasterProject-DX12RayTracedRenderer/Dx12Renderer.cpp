@@ -214,7 +214,7 @@ void Dx12Renderer::Draw(const Timer gameTimer)
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
     mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
-    ThrowIfFailed(mSwapChain->Present(0, 0));
+    ThrowIfFailed(mSwapChain->Present(mVSync, 0));
     mCurrBackBuffer = (mCurrBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
     mCurrFrameResource->fence = ++mCurrFence;
     mCommandQueue->Signal(mFence.Get(), mCurrFence);
@@ -669,7 +669,7 @@ void Dx12Renderer::BuildFrameResources()
 void Dx12Renderer::BuildRenderItems()
 {
     auto boxRendItem = std::make_unique<RenderItem>();
-    DirectX::XMStoreFloat4x4(&boxRendItem->world, DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f) * DirectX::XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+    DirectX::XMStoreFloat4x4(&boxRendItem->world, DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f) * DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f));
     boxRendItem->objCBIndex = 0;
     boxRendItem->meshGeo = mGeos["shapeGeo"].get();
     boxRendItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
