@@ -216,6 +216,7 @@ void Dx12Renderer::Draw(const Timer gameTimer)
 
     ThrowIfFailed(mSwapChain->Present(mVSync, 0));
     mCurrBackBuffer = (mCurrBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
+
     mCurrFrameResource->fence = ++mCurrFence;
     mCommandQueue->Signal(mFence.Get(), mCurrFence);
     //FlushCommandQueue();
@@ -441,7 +442,7 @@ void Dx12Renderer::OnResize()
     vp.MaxDepth = 1.0f;
 
     //10 - Set the Scissor Rectangles
-    mScissorRect = { 0, 0, mClientWidth / 2, mClientHeight / 2 };
+    mScissorRect = { 0, 0, mClientWidth /*/ 2*/, mClientHeight /*/ 2 */};
 
     DirectX::XMMATRIX p = DirectX::XMMatrixPerspectiveFovLH(0.25f * DirectX::XM_PI, GetAspectRatio(), 1.0f, 1000.0f);
     DirectX::XMStoreFloat4x4(&mProj, p);
