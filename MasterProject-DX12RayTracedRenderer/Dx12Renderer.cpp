@@ -288,7 +288,8 @@ void Dx12Renderer::Update(const Timer gameTimer)
     mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
 
     if (mCurrFrameResource->fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->fence) {
-        HANDLE eventHandle = CreateEventEx(nullptr, NULL, CREATE_EVENT_INITIAL_SET, EVENT_ALL_ACCESS);
+        //HANDLE eventHandle = CreateEventEx(nullptr, NULL, CREATE_EVENT_INITIAL_SET, EVENT_ALL_ACCESS);
+        HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
         ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResource->fence, eventHandle));
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
@@ -453,7 +454,7 @@ void Dx12Renderer::FlushCommandQueue()
     mCurrFence++;
     ThrowIfFailed(mCommandQueue->Signal(mFence.Get(), mCurrFence));
     if (mFence->GetCompletedValue() < mCurrFence) {
-        HANDLE eventHandle = CreateEventEx(nullptr, NULL, CREATE_EVENT_INITIAL_SET, EVENT_ALL_ACCESS);
+        HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
         ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFence, eventHandle));
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
@@ -484,7 +485,7 @@ void Dx12Renderer::BuildConstantBuffers()
         for (UINT i = 0; i < objCount; ++i) {
             D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectCB->GetGPUVirtualAddress();
             cbAddress += i * objCBByteSize;
-            int heapIndex = frameIndex * objCount + 1;
+            int heapIndex = frameIndex * objCount + i;// +1;
             auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
             handle.Offset(heapIndex, mCBVSRVUAVDescriptorSize);
 
