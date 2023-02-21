@@ -5,6 +5,7 @@
 #include <dxgi1_4.h>
 #include <d3d12.h>
 #include <d3dcompiler.h>
+#include <dxcapi.h>
 #include <DirectXMath.h>
 #include <DirectXColors.h>
 #include <DirectXCollision.h>

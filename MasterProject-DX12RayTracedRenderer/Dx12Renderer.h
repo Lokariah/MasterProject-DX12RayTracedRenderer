@@ -22,6 +22,12 @@ struct RenderItem {
 	int baseVertexLocation = 0;
 };
 
+struct AccelerationStructBuffers {
+	ComPtr<ID3D12Resource> pScratch;
+	ComPtr<ID3D12Resource> pResult;
+	ComPtr<ID3D12Resource> pInstanceDesc;
+};
+
 class Dx12Renderer
 {
 public:
@@ -30,7 +36,7 @@ public:
 	Dx12Renderer operator= (const Dx12Renderer& temp) = delete;
 	~Dx12Renderer();
 
-	//static Dx12Renderer* GetApp();
+	static Dx12Renderer* GetApp();
 	HINSTANCE AppInst() const;
 	HWND MainWnd() const;
 
@@ -42,14 +48,29 @@ public:
 
 protected:
 
-	//struct vertexLayout {
-	//	DirectX::XMFLOAT3 position;
-	//	DirectX::XMFLOAT4 colour;
-	//};
+	//--------------------
+	//SharedFunctions
+	//--------------------
 
-	//struct constants {
-	//	DirectX::XMFLOAT4X4 worldViewProj = IDENTITY_MATRIX;
-	//};
+	void SetRaytracingState(bool state);
+
+	//--------------------
+	//RayTraceFunctions
+	//--------------------
+
+	void CheckRaytracingSupport();
+
+	AccelerationStructBuffers CreateBottomLevelAS(std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t>> vertexBuffers);
+	void CreateTopLevelAS(const std::vector<std::pair<ComPtr<ID3D12Resource>, DirectX::XMMATRIX>>& instances);
+	void CreateAccelerationStructures();
+
+	ComPtr<ID3D12Resource> mBottomLevelAS;
+	AccelerationStructBuffers mTopLevelASBuffers;
+	std::vector<std::pair<ComPtr<ID3D12Resource>, DirectX::XMMATRIX>> mInstances;
+
+	//--------------------
+	//RasterizerFunctions
+	//--------------------
 
 	bool InitialiseDirect3D();
 	void OnResize();
@@ -85,7 +106,7 @@ protected:
 
 	void CalculateFrameStats();
 
-	// Dx12Renderer* mApp;
+	static Dx12Renderer* mApp;
 	HINSTANCE mAppInst = nullptr;
 
 	UINT mRTVDescriptorSize = 0;
@@ -96,6 +117,7 @@ protected:
 	bool m4xMSAAState = false;
 
 	bool mVSync = false;
+	bool mRaytracing = true;
 
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -104,14 +126,14 @@ protected:
 	UINT64 mCurrFence = 0;
 
 	ComPtr<IDXGIFactory4>				mDXGIFactory = nullptr;
-	ComPtr<ID3D12Device>				mD3DDevice = nullptr;
+	ComPtr<ID3D12Device5>				mD3DDevice = nullptr;
 	ComPtr<IDXGISwapChain>				mSwapChain = nullptr;
 	ComPtr<ID3D12Resource>				mSwapChainBuffer[SWAP_CHAIN_BUFFER_COUNT];
 	ComPtr<ID3D12Resource>				mDepthStencilBuffer = nullptr;
 	ComPtr<ID3D12Fence>					mFence = nullptr;
 	ComPtr<ID3D12CommandQueue>			mCommandQueue = nullptr;
 	ComPtr<ID3D12CommandAllocator>		mDirectCmdListAlloc = nullptr;
-	ComPtr<ID3D12GraphicsCommandList>   mCommandList = nullptr;
+	ComPtr<ID3D12GraphicsCommandList4>   mCommandList = nullptr;
 	ComPtr<ID3D12RootSignature>			mRootSignature = nullptr;
 	ComPtr<ID3D12DescriptorHeap>		mRTVHeap = nullptr;
 	ComPtr<ID3D12DescriptorHeap>		mDSVHeap = nullptr;

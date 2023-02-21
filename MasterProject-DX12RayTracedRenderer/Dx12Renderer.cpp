@@ -1,6 +1,7 @@
 #include "Dx12Renderer.h"
 
 HWND Dx12Renderer::m_mainWindowHWND = nullptr;
+Dx12Renderer* Dx12Renderer::mApp = nullptr;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd) {
 
@@ -34,11 +35,11 @@ Dx12Renderer::~Dx12Renderer()
     if (mD3DDevice != nullptr) FlushCommandQueue();
 }
 
-//Dx12Renderer* Dx12Renderer::GetApp()
-//{
-//    return mApp;
-//}
-//
+Dx12Renderer* Dx12Renderer::GetApp()
+{
+    return mApp;
+}
+
 HINSTANCE Dx12Renderer::AppInst() const
 {
     return mAppInst;
@@ -99,6 +100,21 @@ void Dx12Renderer::DeviceRemovedReason()
 #endif
 }
 
+void Dx12Renderer::SetRaytracingState(bool state)
+{
+    mRaytracing = state;
+}
+
+void Dx12Renderer::CheckRaytracingSupport()
+{
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 raytraceFeaturesOptions = {};
+    ThrowIfFailed(mD3DDevice->CheckFeatureSupport(
+        D3D12_FEATURE_D3D12_OPTIONS5,
+        &raytraceFeaturesOptions,
+        sizeof(raytraceFeaturesOptions)));
+    assert(raytraceFeaturesOptions.RaytracingTier > 0 && "Raytracing is Unsupported on this Device");
+}
+
 bool Dx12Renderer::InitialiseDirect3D()
 {
 
@@ -115,14 +131,14 @@ bool Dx12Renderer::InitialiseDirect3D()
 
     HRESULT hardwareResult = D3D12CreateDevice(
         nullptr,
-        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_12_1,
         IID_PPV_ARGS(&mD3DDevice));
 
     if (FAILED(hardwareResult)) {
         ComPtr<IDXGIAdapter> pWarpAdapter;
         ThrowIfFailed(mDXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpAdapter)));
         ThrowIfFailed(D3D12CreateDevice(pWarpAdapter.Get(),
-            D3D_FEATURE_LEVEL_11_0,
+            D3D_FEATURE_LEVEL_12_1,
             IID_PPV_ARGS(&mD3DDevice)));
     }
 
@@ -131,6 +147,9 @@ bool Dx12Renderer::InitialiseDirect3D()
     mRTVDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     mDSVDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
     mCBVSRVUAVDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    //Raytracing PreChecks
+    CheckRaytracingSupport();
 
     //3 - Check 4x MSAA quality support ??not necessary??
     D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLvls;
@@ -179,30 +198,40 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         D3D12_RESOURCE_STATE_RENDER_TARGET);
     mCommandList->ResourceBarrier(1, &barrier);
 
-    mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Orchid, 0, nullptr);
-    mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-    auto backBufferView = CurrentBackBufferView();
-    auto depthStencilView = DepthStencilView();
-    mCommandList->OMSetRenderTargets(1, &backBufferView, true, &depthStencilView);
+    if (!mRaytracing) {
+        mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Orchid, 0, nullptr);
+        mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+        auto backBufferView = CurrentBackBufferView();
+        auto depthStencilView = DepthStencilView();
+        mCommandList->OMSetRenderTargets(1, &backBufferView, true, &depthStencilView);
 
-    ID3D12DescriptorHeap* descriptorHeaps[] = { mCBVHeap.Get() };
-    mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-    mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
-    
-    int passCbvIndex = mPassCBVOffset + mCurrFrameResourceIndex;
-    auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-    passCbvHandle.Offset(passCbvIndex, mCBVSRVUAVDescriptorSize);
+        ID3D12DescriptorHeap* descriptorHeaps[] = { mCBVHeap.Get() };
+        mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-    //auto vertexBufferView = mBoxGeometry->VertexBufferView();
-    //auto indexBufferView = mBoxGeometry->IndexBufferView();
-    //mCommandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-    //mCommandList->IASetIndexBuffer(&indexBufferView);
-    //mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-    mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
-    DrawRenderItems(mCommandList.Get(), mOpaqueRendItems);
-    //mCommandList->DrawIndexedInstanced(mBoxGeometry->drawArgs["box"].IndexCount, 1, 0, 0, 0);
+        int passCbvIndex = mPassCBVOffset + mCurrFrameResourceIndex;
+        auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+        passCbvHandle.Offset(passCbvIndex, mCBVSRVUAVDescriptorSize);
+
+        //auto vertexBufferView = mBoxGeometry->VertexBufferView();
+        //auto indexBufferView = mBoxGeometry->IndexBufferView();
+        //mCommandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+        //mCommandList->IASetIndexBuffer(&indexBufferView);
+        //mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+        mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+        DrawRenderItems(mCommandList.Get(), mOpaqueRendItems);
+        //mCommandList->DrawIndexedInstanced(mBoxGeometry->drawArgs["box"].IndexCount, 1, 0, 0, 0);
+    }
+    else {
+        mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Sienna, 0, nullptr);
+        mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+        auto backBufferView = CurrentBackBufferView();
+        auto depthStencilView = DepthStencilView();
+        mCommandList->OMSetRenderTargets(1, &backBufferView, true, &depthStencilView);
+    }
 
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -858,6 +887,8 @@ LRESULT Dx12Renderer::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
     case WM_KEYDOWN:
         if (wParam == VK_ESCAPE) DestroyWindow(m_mainWindowHWND);
+        
+        //else if (wParam == VK_SPACE) SetRaytracingState(!mRaytracing);
         return 0;
     case WM_DESTROY:
         PostQuitMessage(0);
