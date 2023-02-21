@@ -115,6 +115,69 @@ void Dx12Renderer::CheckRaytracingSupport()
     assert(raytraceFeaturesOptions.RaytracingTier > 0 && "Raytracing is Unsupported on this Device");
 }
 
+AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t>> vertexBuffers)
+{
+    for (const auto& buffer : vertexBuffers) {
+        D3D12_RAYTRACING_GEOMETRY_DESC desc = {};
+        desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+        desc.Triangles.VertexBuffer.StartAddress = buffer.first.Get()->GetGPUVirtualAddress();
+        desc.Triangles.VertexBuffer.StrideInBytes = sizeof(vertexConsts);
+        desc.Triangles.VertexCount = buffer.second;
+        desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+        //desc.Triangles.IndexBuffer = 
+        //addVertexBuffer code here
+    }
+
+    UINT64 scratchSizeInBytes = 0;
+    UINT64 resultSizeInBytes = 0;
+    //ComputeASBufferSizes
+
+    AccelerationStructBuffers buffers;
+    // buffers.pScratch create buffer
+    // buffers.pResult create buffer
+    // generate
+
+    return AccelerationStructBuffers();
+}
+
+void Dx12Renderer::BotAddVertexBuffer(ID3D12Resource* vertBuffer, UINT64 vertOffsetInBytes, uint32_t vertCount, UINT vertSizeInBytes, ID3D12Resource* transBuffer, UINT64 transOffsetInBytes, bool bOpaque)
+{
+    BotAddVertexBuffer(vertBuffer, vertOffsetInBytes, vertCount, vertSizeInBytes, nullptr, 0, 0, transBuffer, transOffsetInBytes, bOpaque);
+}
+
+void Dx12Renderer::BotAddVertexBuffer(ID3D12Resource* vertBuffer, UINT64 vertOffsetInBytes, uint32_t vertCount, UINT vertSizeInBytes, ID3D12Resource* indexBuffer, UINT64 indexOffsetInBytes, uint32_t indexCount, ID3D12Resource* transBuffer, UINT64 transOffsetInBytes, bool bOpaque)
+{
+    D3D12_RAYTRACING_GEOMETRY_DESC desc = {};
+    desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    desc.Triangles.VertexBuffer.StartAddress = vertBuffer->GetGPUVirtualAddress() + vertOffsetInBytes;
+    desc.Triangles.VertexBuffer.StrideInBytes = vertSizeInBytes;
+    desc.Triangles.VertexCount = vertCount;
+    desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+    desc.Triangles.IndexBuffer = indexBuffer ? (indexBuffer->GetGPUVirtualAddress() + indexOffsetInBytes) : 0;
+    desc.Triangles.IndexFormat = indexBuffer ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_UNKNOWN;
+    desc.Triangles.IndexCount = indexCount;
+    desc.Triangles.Transform3x4 = transBuffer ? (transBuffer->GetGPUVirtualAddress() + transOffsetInBytes) : 0;
+    desc.Flags = bOpaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+
+    mBotVertexBuffers.push_back(desc);
+}
+
+void Dx12Renderer::ComputeBotASBufferSize(ID3D12Device5* device, bool bUpdatable, UINT64* scratchSizeInBytes, UINT64* resultSizeInBytes)
+{
+    mFlags = bUpdatable ? D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE : D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS preBuildDesc;
+    preBuildDesc.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+    preBuildDesc.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+    preBuildDesc.NumDescs = static_cast<UINT>(mBotVertexBuffers.size());
+    preBuildDesc.pGeometryDescs = mBotVertexBuffers.data();
+    preBuildDesc.Flags = mFlags;
+
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info = {};
+    device->GetRaytracingAccelerationStructurePrebuildInfo(&preBuildDesc, &info);
+    //scratchsizeinbytes
+}
+
 bool Dx12Renderer::InitialiseDirect3D()
 {
 
