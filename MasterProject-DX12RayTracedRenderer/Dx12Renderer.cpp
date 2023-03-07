@@ -118,14 +118,7 @@ void Dx12Renderer::CheckRaytracingSupport()
 AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t>> vertexBuffers)
 {
     for (const auto& buffer : vertexBuffers) {
-        D3D12_RAYTRACING_GEOMETRY_DESC desc = {};
-        desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-        desc.Triangles.VertexBuffer.StartAddress = buffer.first.Get()->GetGPUVirtualAddress();
-        desc.Triangles.VertexBuffer.StrideInBytes = sizeof(vertexConsts);
-        desc.Triangles.VertexCount = buffer.second;
-        desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-        //desc.Triangles.IndexBuffer = 
-        //addVertexBuffer code here
+        BotAddVertexBuffer(buffer.first.Get(), 0, buffer.second, sizeof(vertexConsts), 0, 0);
     }
 
     UINT64 scratchSizeInBytes = 0;
@@ -175,7 +168,9 @@ void Dx12Renderer::ComputeBotASBufferSize(ID3D12Device5* device, bool bUpdatable
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info = {};
     device->GetRaytracingAccelerationStructurePrebuildInfo(&preBuildDesc, &info);
-    //scratchsizeinbytes
+    
+    *scratchSizeInBytes = ROUND_UP(info.ScratchDataSizeInBytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    *resultSizeInBytes = ROUND_UP(info.ResultDataMaxSizeInBytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 }
 
 bool Dx12Renderer::InitialiseDirect3D()
