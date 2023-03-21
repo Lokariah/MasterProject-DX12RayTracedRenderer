@@ -4,16 +4,19 @@
 #include <comdef.h>
 #include <dxgi1_4.h>
 #include <d3d12.h>
-#include <d3dcompiler.h>
 #include <dxcapi.h>
+#include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
 #include <string>
 #include <memory>
 #include <vector>
+#include <fstream>
+#include <sstream>
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include "d3dx12.h"
 
 using Microsoft::WRL::ComPtr;
@@ -56,6 +59,10 @@ public:
 		return (byteSize + 255) & ~255;
 	}
 	
+	static UINT RoundUp(UINT x, UINT pow2Alignment) {
+		return x + (pow2Alignment - 1) & ~(pow2Alignment - 1);
+	}
+
 	static ComPtr<ID3DBlob> CompileShader(
 		const std::wstring& fileName,
 		const D3D_SHADER_MACRO* defines,

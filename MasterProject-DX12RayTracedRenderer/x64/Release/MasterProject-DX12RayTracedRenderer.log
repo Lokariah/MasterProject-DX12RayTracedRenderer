@@ -1,8 +1,16 @@
 ﻿  Dx12Renderer.cpp
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(782,57): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
-  Generating code
-  1 of 1289 functions (<0.1%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    3 functions had inline decision re-evaluated but remain unchanged
-  Finished generating code
-  MasterProject-DX12RayTracedRenderer.vcxproj -> D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(215,48): warning C4244: 'argument': conversion from 'UINT64' to 'UINT', possible loss of data
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(216,47): warning C4244: 'argument': conversion from 'UINT64' to 'UINT', possible loss of data
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(228,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(229,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(230,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(269,58): warning C4244: 'argument': conversion from 'UINT64' to 'UINT', possible loss of data
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(270,56): warning C4244: 'argument': conversion from 'UINT64' to 'UINT', possible loss of data
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(274,179): warning C4267: 'argument': conversion from 'size_t' to 'UINT', possible loss of data
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(286,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(308,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(309,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(1034,57): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(1084,5): warning C4002: too many arguments for function-like macro invocation 'assert'
+Dx12Renderer.obj : error LNK2001: unresolved external symbol __imp_DxcCreateInstance
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe : fatal error LNK1120: 1 unresolved externals
