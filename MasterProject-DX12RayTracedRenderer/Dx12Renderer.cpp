@@ -225,9 +225,9 @@ void Dx12Renderer::GenerateBotASBuffers(ID3D12GraphicsCommandList4* commandList,
 
     if (flags == D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && bUpdateOnly) flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 
-    assert(!(mBotFlags != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && bUpdateOnly), "Can't update bot level AS not built for updates.");
-    assert(!(bUpdateOnly && prevResult == nullptr), "Bot level hierarchy update missing prev hierarchy");
-    assert(!(mBotResultSizeInBytes == 0 || mBotScratchSizeInBytes == 0), "Bot scratch and result buffers invalid size");
+    assert(!(mBotFlags != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && bUpdateOnly) && "Can't update bot level AS not built for updates.");
+    assert(!(bUpdateOnly && prevResult == nullptr) && "Bot level hierarchy update missing prev hierarchy");
+    assert(!(mBotResultSizeInBytes == 0 || mBotScratchSizeInBytes == 0) && "Bot scratch and result buffers invalid size");
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc;
     buildDesc.Inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
@@ -283,7 +283,7 @@ void Dx12Renderer::GenerateTopASBuffers(ID3D12GraphicsCommandList4* commandList,
 {
     D3D12_RAYTRACING_INSTANCE_DESC* instDescs;
     descBuffer->Map(0, nullptr, reinterpret_cast<void**>(&instDescs));
-    assert(instDescs, "map instance descriptor buffer failed");
+    assert(instDescs && "map instance descriptor buffer failed");
 
     auto instCount = static_cast<UINT>(mTopInstances.size());
 
@@ -305,8 +305,8 @@ void Dx12Renderer::GenerateTopASBuffers(ID3D12GraphicsCommandList4* commandList,
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS flags = mTopFlags;
 
     if (flags == D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && bUpdateOnly) flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
-    assert(!(mTopFlags != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && bUpdateOnly), "Can't update Top level AS not built for updates.");
-    assert(!(bUpdateOnly && prevResult == nullptr), "Top Lvl hierarchy update requires previous hierarchy");
+    assert(!(mTopFlags != D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE && bUpdateOnly) && "Can't update Top level AS not built for updates.");
+    assert(!(bUpdateOnly && prevResult == nullptr) && "Top Lvl hierarchy update requires previous hierarchy");
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc;
     buildDesc.Inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
@@ -1081,7 +1081,7 @@ ComPtr<IDxcBlob> Dx12Renderer::CompileShaderLibrary(LPCWSTR filename)
     }
 
     std::ifstream shaderFile(filename);
-    assert(!(shaderFile.good() == false), "Can't find Shader File");
+    assert(!(shaderFile.good() == false) && "Can't find Shader File");
 
     std::stringstream sstream;
     sstream << shaderFile.rdbuf();
@@ -1140,14 +1140,14 @@ void Dx12Renderer::CalculateFrameStats()
 
 void Dx12Renderer::CreateDummyRootSigs()
 {
-    D3D12_ROOT_SIGNATURE_DESC rootDesc;
+    D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
     rootDesc.NumParameters = 0;
     rootDesc.pParameters = nullptr;
     rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
     
     HRESULT hr = 0;
-    ID3DBlob* serialisedRootSig;
-    ID3DBlob* err;
+    ID3DBlob* serialisedRootSig = {};
+    ID3DBlob* err = {};
     
     hr = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serialisedRootSig, &err);
     ThrowIfFailed(hr);
@@ -1222,14 +1222,14 @@ void Dx12Renderer::BuildShaderExList(std::vector<std::wstring>& exSymbols)
 #ifdef DEBUG
     std::unordered_set<std::wstring> allExs = exports;
     for (const auto& hitGroup : mRTPHitGroups) {
-        assert(!(!hitGroup.mAnyHitSymbol.empty() && exports.find(hitGroup.mAnyHitSymbol) == exports.end()), "Any hit symbol not found in imported DXIL libraries");
-        assert(!(!hitGroup.mClosestHitSymbol.empty() && exports.find(hitGroup.mClosestHitSymbol) == exports.end()), "Closest hit symbol not found in imported DXIL libraries");
-        assert(!(!hitGroup.mIntersectionSymbol.empty() && exports.find(hitGroup.mIntersectionSymbol) == exports.end()), "Intersection symbol not found in imported DXIL libraries");
+        assert(!(!hitGroup.mAnyHitSymbol.empty() && exports.find(hitGroup.mAnyHitSymbol) == exports.end()) && "Any hit symbol not found in imported DXIL libraries");
+        assert(!(!hitGroup.mClosestHitSymbol.empty() && exports.find(hitGroup.mClosestHitSymbol) == exports.end()) && "Closest hit symbol not found in imported DXIL libraries");
+        assert(!(!hitGroup.mIntersectionSymbol.empty() && exports.find(hitGroup.mIntersectionSymbol) == exports.end()) && "Intersection symbol not found in imported DXIL libraries");
         allExs.insert(hitGroup.mHitGroupName);
     }
 
     for (const auto& assoc : mRTPRootSigAssociations) {
-        for (const auto& symb : assoc.mSymbols) assert(!(!symb.empty() && allExs.find(symb) == allExs.end()), "RootAssocSymbol not found in imported DXIL libraries and hit group names");
+        for (const auto& symb : assoc.mSymbols) assert(!(!symb.empty() && allExs.find(symb) == allExs.end()) && "RootAssocSymbol not found in imported DXIL libraries and hit group names");
     }
 #endif // DEBUG
 
@@ -1337,17 +1337,17 @@ ID3D12RootSignature* Dx12Renderer::RSGenerate(ID3D12Device* device, bool bLocal)
         if (mRSParams[i].ParameterType == D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) mRSParams[i].DescriptorTable.pDescriptorRanges = mRSRanges[mRSRangeLocs[i]].data();
     }
 
-    D3D12_ROOT_SIGNATURE_DESC rootDesc;
+    D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
     rootDesc.NumParameters = static_cast<UINT>(mRSParams.size());
     rootDesc.pParameters = mRSParams.data();
     rootDesc.Flags = bLocal ? D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE : D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
-    ID3DBlob* pSigBlob;
-    ID3DBlob* pErrorBlob;
+    ID3DBlob* pSigBlob = {};
+    ID3DBlob* pErrorBlob = {};
     HRESULT hr = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &pSigBlob, &pErrorBlob);
     ThrowIfFailed(hr);
 
-    ID3D12RootSignature* pRootSig;
+    ID3D12RootSignature* pRootSig = {};
     hr = device->CreateRootSignature(0, pSigBlob->GetBufferPointer(), pSigBlob->GetBufferSize(), IID_PPV_ARGS(&pRootSig));
     ThrowIfFailed(hr);
 
