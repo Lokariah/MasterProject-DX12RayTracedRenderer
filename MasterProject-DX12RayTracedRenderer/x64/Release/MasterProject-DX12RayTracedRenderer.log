@@ -1,4 +1,9 @@
 ﻿  Dx12Renderer.cpp
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Utility.h(46,90): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(245,5): error C2102: '&' requires l-value
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(1282,57): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
+D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Utility.h(46,90): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(1315,57): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
+  Generating code
+  3 of 1781 functions ( 0.2%) were compiled, the rest were copied from previous compilation.
+    1 functions were new in current compilation
+    3 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  MasterProject-DX12RayTracedRenderer.vcxproj -> D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe

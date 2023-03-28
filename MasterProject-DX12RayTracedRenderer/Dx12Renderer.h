@@ -117,7 +117,7 @@ struct ShaderConfig {
 struct PipelineConfig {
 	PipelineConfig(uint32_t maxTraceRecursionDepth) {
 		pipelineConfig.MaxTraceRecursionDepth = maxTraceRecursionDepth;
-		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
 		subObj.pDesc = &pipelineConfig;
 	}
 	D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
@@ -183,6 +183,7 @@ protected:
 	void CreateRtPipelineState();
 	void CreateShaderTable();
 	void CreateShaderResources();
+	void BuildFrameResourcesRT();
 
 	ComPtr<ID3D12Resource> mVertexBuffer;
 	ComPtr<ID3D12Resource> mTopLvlAS;
@@ -198,6 +199,9 @@ protected:
 	ComPtr<ID3D12Resource> mOutputResource;
 	ComPtr<ID3D12DescriptorHeap> mSrvUavHeap;
 	static const uint32_t SRV_UAV_HEAP_SIZE = 2;
+
+	std::vector<std::unique_ptr<FrameResourceRT>> mFrameResourcesRT;
+	FrameResourceRT* mCurrFrameResourceRT = nullptr;
 
 	ID3D12Resource* CreateBuffer(ID3D12Device5* device, uint64_t size, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initState, const D3D12_HEAP_PROPERTIES& heapProps);
 	ID3D12Resource* CreateTriangleVB(ID3D12Device5* device);
@@ -349,7 +353,7 @@ protected:
 	bool m4xMSAAState = false;
 
 	bool mVSync = false;
-	bool mRaytracing = true;
+	bool mRaytracing = false;
 
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;

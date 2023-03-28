@@ -2,24 +2,24 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe</FullPath>
+      <FullPath>D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles>
     <ContentFile>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso</FullPath>
+      <FullPath>D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso</FullPath>
     </ContentFile>
     <ContentFile>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso</FullPath>
+      <FullPath>D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso</FullPath>
     </ContentFile>
     <ContentFile>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGenShaders.cso</FullPath>
+      <FullPath>D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\RayGenShaders.cso</FullPath>
     </ContentFile>
     <ContentFile>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso</FullPath>
+      <FullPath>D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso</FullPath>
     </ContentFile>
     <ContentFile>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGen.cso</FullPath>
+      <FullPath>D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\RayGen.cso</FullPath>
     </ContentFile>
   </ContentFiles>
   <SatelliteDlls />

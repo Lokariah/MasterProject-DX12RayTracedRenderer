@@ -8,8 +8,7 @@
 #include "winrt/impl/Windows.Security.Authorization.AppCapabilityAccess.1.h"
 WINRT_EXPORT namespace winrt::Windows::Security::Authorization::AppCapabilityAccess
 {
-    struct __declspec(empty_bases) AppCapability : winrt::Windows::Security::Authorization::AppCapabilityAccess::IAppCapability,
-        impl::require<AppCapability, winrt::Windows::Security::Authorization::AppCapabilityAccess::IAppCapability2>
+    struct __declspec(empty_bases) AppCapability : winrt::Windows::Security::Authorization::AppCapabilityAccess::IAppCapability
     {
         AppCapability(std::nullptr_t) noexcept {}
         AppCapability(void* ptr, take_ownership_from_abi_t) noexcept : winrt::Windows::Security::Authorization::AppCapabilityAccess::IAppCapability(ptr, take_ownership_from_abi) {}

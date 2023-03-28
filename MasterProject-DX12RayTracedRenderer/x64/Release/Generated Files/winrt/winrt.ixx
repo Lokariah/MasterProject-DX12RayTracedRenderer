@@ -141,7 +141,6 @@ export module winrt;
 #include "winrt/Windows.Devices.Enumeration.Pnp.h"
 #include "winrt/Windows.Devices.Geolocation.h"
 #include "winrt/Windows.Devices.Geolocation.Geofencing.h"
-#include "winrt/Windows.Devices.Geolocation.Provider.h"
 #include "winrt/Windows.Devices.Gpio.h"
 #include "winrt/Windows.Devices.Gpio.Provider.h"
 #include "winrt/Windows.Devices.Haptics.h"

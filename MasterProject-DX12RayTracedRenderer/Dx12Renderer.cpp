@@ -100,6 +100,7 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
         CreateRtPipelineState();
         CreateShaderResources();
         CreateShaderTable();
+        BuildFrameResourcesRT();
     }
     else {
         BuildRootSignature();
@@ -110,15 +111,15 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
         BuildDescriptorHeaps();
         BuildConstantBuffers();
         BuildPSO();
+    
+        ThrowIfFailed(mCommandList->Close());
+        ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
+        mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+    
     }
    //CheckRaytracingSupport();
    //CreateAccelerationStructures();
    //CreateRaytracingPipeline();
-
-    ThrowIfFailed(mCommandList->Close());
-    ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
-    mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-
     FlushCommandQueue();
 
     return true;
@@ -635,25 +636,29 @@ bool Dx12Renderer::InitialiseDirect3D()
 
 void Dx12Renderer::Draw(const Timer gameTimer)
 {
-    auto cmdListAllocation = mCurrFrameResource->cmdListAllocator;
-    ThrowIfFailed(cmdListAllocation->Reset());
-
-    if (bIsWireframe) { 
-        ThrowIfFailed(mCommandList->Reset(cmdListAllocation.Get(), mPsos["opaque_wireframe"].Get()));
+    if (!mRaytracing) {
+        auto cmdListAllocation = mCurrFrameResource->cmdListAllocator;
+        ThrowIfFailed(cmdListAllocation->Reset());
+        if (bIsWireframe) {
+            ThrowIfFailed(mCommandList->Reset(cmdListAllocation.Get(), mPsos["opaque_wireframe"].Get()));
+        }
+        else {
+            ThrowIfFailed(mCommandList->Reset(cmdListAllocation.Get(), mPsos["opaque"].Get()));
+        }
     }
     else {
-        ThrowIfFailed(mCommandList->Reset(cmdListAllocation.Get(), mPsos["opaque"].Get()));
+        auto cmdListAllocation = mCurrFrameResourceRT->cmdListAllocator;
+        ThrowIfFailed(mCommandList->Reset(cmdListAllocation.Get(), nullptr));
     }
 
     mCommandList->RSSetViewports(1, &vp);
     mCommandList->RSSetScissorRects(1, &mScissorRect);
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-        D3D12_RESOURCE_STATE_PRESENT,
-        D3D12_RESOURCE_STATE_RENDER_TARGET);
-    mCommandList->ResourceBarrier(1, &barrier);
-
     if (!mRaytracing) {
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+        mCommandList->ResourceBarrier(1, &barrier);
         mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Orchid, 0, nullptr);
         mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
         auto backBufferView = CurrentBackBufferView();
@@ -689,13 +694,20 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
         auto backBufferView = CurrentBackBufferView();
         auto depthStencilView = DepthStencilView();
-        mCommandList->OMSetRenderTargets(1, &backBufferView, true, &depthStencilView);
+        //mCommandList->OMSetRenderTargets(1, &backBufferView, true, &depthStencilView);
 
+
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_COPY_DEST);
+        mCommandList->ResourceBarrier(1, &barrier);
 
         barrier = CD3DX12_RESOURCE_BARRIER::Transition(mOutputResource.Get(),
             D3D12_RESOURCE_STATE_COPY_SOURCE,
             D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
         mCommandList->ResourceBarrier(1, &barrier);
+
+
 
         D3D12_DISPATCH_RAYS_DESC raytraceDesc = {};
         raytraceDesc.Width = mClientWidth;
@@ -718,10 +730,10 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         raytraceDesc.HitGroupTable.StrideInBytes = mShaderTableEntrySize;
         raytraceDesc.HitGroupTable.SizeInBytes = mShaderTableEntrySize;
 
-        // Bind the empty root signature
+        //// Bind the empty root signature
         mCommandList->SetComputeRootSignature(mEmptyRootSig.Get());
 
-        // Dispatch
+        //// Dispatch
         mCommandList->SetPipelineState1(mPipelineState.Get());
         mCommandList->DispatchRays(&raytraceDesc);
 
@@ -730,12 +742,12 @@ void Dx12Renderer::Draw(const Timer gameTimer)
             D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
             D3D12_RESOURCE_STATE_COPY_SOURCE);
         mCommandList->ResourceBarrier(1, &barrier); 
-        barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-            D3D12_RESOURCE_STATE_PRESENT,
-            D3D12_RESOURCE_STATE_COPY_DEST);
-        mCommandList->ResourceBarrier(1, &barrier);
         mCommandList->CopyResource(CurrentBackBuffer(), mOutputResource.Get());
 
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_PRESENT);
+        mCommandList->ResourceBarrier(1, &barrier);
     }
     
     ThrowIfFailed(mCommandList->Close());
@@ -745,8 +757,8 @@ void Dx12Renderer::Draw(const Timer gameTimer)
 
     ThrowIfFailed(mSwapChain->Present(mVSync, 0));
     mCurrBackBuffer = (mCurrBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
-
-    mCurrFrameResource->fence = ++mCurrFence;
+    if (mRaytracing) mCurrFrameResourceRT->fence = ++mCurrFence;
+    else mCurrFrameResource->fence = ++mCurrFence;
     mCommandQueue->Signal(mFence.Get(), mCurrFence);
     //FlushCommandQueue();
 }
@@ -812,20 +824,34 @@ void Dx12Renderer::UpdateMainPassCB(const Timer gameTimer)
 
 void Dx12Renderer::Update(const Timer gameTimer)
 {
-    UpdateCamera(gameTimer);
-    mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
-    mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
+    if (!mRaytracing) {
+        UpdateCamera(gameTimer);
+        mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
+        mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
 
-    if (mCurrFrameResource->fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->fence) {
-        //HANDLE eventHandle = CreateEventEx(nullptr, NULL, CREATE_EVENT_INITIAL_SET, EVENT_ALL_ACCESS);
-        HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
-        ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResource->fence, eventHandle));
-        WaitForSingleObject(eventHandle, INFINITE);
-        CloseHandle(eventHandle);
+        if (mCurrFrameResource->fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->fence) {
+            //HANDLE eventHandle = CreateEventEx(nullptr, NULL, CREATE_EVENT_INITIAL_SET, EVENT_ALL_ACCESS);
+            HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
+            ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResource->fence, eventHandle));
+            WaitForSingleObject(eventHandle, INFINITE);
+            CloseHandle(eventHandle);
+        }
+
+        UpdateObjectsCB(gameTimer);
+        UpdateMainPassCB(gameTimer);
     }
-    UpdateObjectsCB(gameTimer);
-    UpdateMainPassCB(gameTimer);
+    else {
+        mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % gNumFrameResources;
+        mCurrFrameResourceRT = mFrameResourcesRT[mCurrFrameResourceIndex].get();
 
+        if (mCurrFrameResourceRT->fence != 0 && mFence->GetCompletedValue() < mCurrFrameResourceRT->fence) {
+            //HANDLE eventHandle = CreateEventEx(nullptr, NULL, CREATE_EVENT_INITIAL_SET, EVENT_ALL_ACCESS);
+            HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
+            ThrowIfFailed(mFence->SetEventOnCompletion(mCurrFrameResourceRT->fence, eventHandle));
+            WaitForSingleObject(eventHandle, INFINITE);
+            CloseHandle(eventHandle);
+        }
+    }
    /* float x = mRadius * sinf(mPhi) * cosf(mTheta);
     float z = mRadius * sinf(mPhi) * sinf(mTheta);
     float y = mRadius * cosf(mPhi);
@@ -1194,6 +1220,13 @@ void Dx12Renderer::BuildFrameResources()
 {
     for (int i = 0; i < gNumFrameResources; ++i) {
         mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, (UINT)mAllRendItems.size()));
+    }
+}
+
+void Dx12Renderer::BuildFrameResourcesRT()
+{
+    for (int i = 0; i < gNumFrameResources; ++i) {
+        mFrameResourcesRT.push_back(std::make_unique<FrameResourceRT>(mD3DDevice.Get()));
     }
 }
 
