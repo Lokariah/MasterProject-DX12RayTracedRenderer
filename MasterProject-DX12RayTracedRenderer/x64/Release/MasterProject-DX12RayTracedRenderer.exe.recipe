@@ -13,7 +13,7 @@
       <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso</FullPath>
     </ContentFile>
     <ContentFile>
-      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\Hit.cso</FullPath>
+      <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGenShaders.cso</FullPath>
     </ContentFile>
     <ContentFile>
       <FullPath>D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso</FullPath>

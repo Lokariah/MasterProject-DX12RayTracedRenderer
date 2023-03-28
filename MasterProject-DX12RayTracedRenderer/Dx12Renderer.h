@@ -28,46 +28,124 @@ struct AccelerationStructBuffers {
 	ComPtr<ID3D12Resource> pInstanceDesc;
 };
 
-struct Instance {
-	Instance(ID3D12Resource* BotLvlAS, const DirectX::XMMATRIX& Trans, UINT InsID, UINT HitGroupIndex) : botLvlAS(BotLvlAS), transformMatrix(Trans), instanceID(InsID), hitGroupIndex(HitGroupIndex) {}
-	
-	ID3D12Resource* botLvlAS;
-	const DirectX::XMMATRIX& transformMatrix;
-	UINT instanceID;
-	UINT hitGroupIndex;
+struct RootSigDesc {
+	D3D12_ROOT_SIGNATURE_DESC desc = {};
+	std::vector<D3D12_DESCRIPTOR_RANGE> range;
+	std::vector<D3D12_ROOT_PARAMETER> rootParams;
 };
 
-struct Library {
-	Library(IDxcBlob* dxil, const std::vector<std::wstring>& exSymbols);
-	Library(const Library& src) : Library(src.mDxil, src.mExSymbols) {};
+//
+//struct Instance {
+//	Instance(ID3D12Resource* BotLvlAS, const DirectX::XMMATRIX& Trans, UINT InsID, UINT HitGroupIndex) : botLvlAS(BotLvlAS), transformMatrix(Trans), instanceID(InsID), hitGroupIndex(HitGroupIndex) {}
+//	
+//	ID3D12Resource* botLvlAS;
+//	const DirectX::XMMATRIX& transformMatrix;
+//	UINT instanceID;
+//	UINT hitGroupIndex;
+//};
+//
+struct DxilLibrary {
+	DxilLibrary(ID3DBlob* blob, const WCHAR* entPoint[], uint32_t entPointCount) : shaderBlob(blob) {
+		stateSubobj.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+		stateSubobj.pDesc = &dxilLibDesc;
+		dxilLibDesc = {};
+		exportDesc.resize(entPointCount);
+		exportName.resize(entPointCount);
+		if (blob) {
+			dxilLibDesc.DXILLibrary.pShaderBytecode = blob->GetBufferPointer();
+			dxilLibDesc.DXILLibrary.BytecodeLength = blob->GetBufferSize();
+			dxilLibDesc.NumExports = entPointCount;
+			dxilLibDesc.pExports = exportDesc.data();
 
-	IDxcBlob* mDxil;
-	const std::vector<std::wstring> mExSymbols;
-	std::vector<D3D12_EXPORT_DESC> mExports;
-	D3D12_DXIL_LIBRARY_DESC mLibDesc;
+			for (uint32_t i = 0; i < entPointCount; i++) {
+				exportName[i] = entPoint[i];
+				exportDesc[i].Name = exportName[i].c_str();
+				exportDesc[i].Flags = D3D12_EXPORT_FLAG_NONE;
+				exportDesc[i].ExportToRename = nullptr;
+			}
+		}
+	};
+
+	DxilLibrary() : DxilLibrary(nullptr, nullptr, 0) {};
+
+	D3D12_DXIL_LIBRARY_DESC dxilLibDesc;
+	D3D12_STATE_SUBOBJECT stateSubobj{};
+	ID3DBlob* shaderBlob;
+	std::vector<D3D12_EXPORT_DESC> exportDesc;
+	std::vector<std::wstring> exportName;
 };
 
-struct HitGroup {
-	HitGroup(std::wstring hitGroupName, std::wstring closestHitSymbol, std::wstring anyHitSymbol = L"", std::wstring intersectionSymbol = L"");
-	HitGroup(const HitGroup& src) : HitGroup(src.mHitGroupName, src.mClosestHitSymbol, src.mAnyHitSymbol, src.mIntersectionSymbol) {}
+struct HitProgram {
+	HitProgram(LPCWSTR ahsExport, LPCWSTR chsExport, const std::wstring& name) : exportName(name) {
+		desc = {};
+		desc.AnyHitShaderImport = ahsExport;
+		desc.ClosestHitShaderImport = chsExport;
+		desc.HitGroupExport = exportName.c_str();
 
-	std::wstring mHitGroupName;
-	std::wstring mClosestHitSymbol;
-	std::wstring mAnyHitSymbol;
-	std::wstring mIntersectionSymbol;
-	D3D12_HIT_GROUP_DESC mDesc;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+		subObj.pDesc = &desc;
+	}
+	std::wstring exportName;
+	D3D12_HIT_GROUP_DESC desc;
+	D3D12_STATE_SUBOBJECT subObj;
 };
 
-struct RootSigAssociation {
-	RootSigAssociation(ID3D12RootSignature* rootSignature, const std::vector<std::wstring>& symbols);
-	RootSigAssociation(const RootSigAssociation& src) : RootSigAssociation(src.mRootSigPtr, src.mSymbols) {}
+struct ExportAssociation {
+	ExportAssociation(const WCHAR* exportNames[], uint32_t exportCount, const D3D12_STATE_SUBOBJECT* subobjectToAssociate) {
+		assoc.NumExports = exportCount;
+		assoc.pExports = exportNames;
+		assoc.pSubobjectToAssociate = subobjectToAssociate;
 
-	ID3D12RootSignature* mRootSig;
-	ID3D12RootSignature* mRootSigPtr;
-	std::vector<std::wstring> mSymbols;
-	std::vector<LPCWSTR> mSymbolsPtr;
-	D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION mAssociation;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION;
+		subObj.pDesc = &assoc;
+	}
+	D3D12_STATE_SUBOBJECT subObj = {};
+	D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION assoc = {};
 };
+
+struct ShaderConfig {
+	ShaderConfig(uint32_t maxAttributeSizeInBytes, uint32_t maxPayloadSizeInBytes) {
+		shaderConfig.MaxAttributeSizeInBytes = maxAttributeSizeInBytes;
+		shaderConfig.MaxPayloadSizeInBytes = maxPayloadSizeInBytes;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+		subObj.pDesc = &shaderConfig;
+	}
+	D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = {};
+	D3D12_STATE_SUBOBJECT subObj = {};
+};
+
+struct PipelineConfig {
+	PipelineConfig(uint32_t maxTraceRecursionDepth) {
+		pipelineConfig.MaxTraceRecursionDepth = maxTraceRecursionDepth;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+		subObj.pDesc = &pipelineConfig;
+	}
+	D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
+	D3D12_STATE_SUBOBJECT subObj = {};
+};
+
+//
+//struct HitGroup {
+//	HitGroup(std::wstring hitGroupName, std::wstring closestHitSymbol, std::wstring anyHitSymbol = L"", std::wstring intersectionSymbol = L"");
+//	HitGroup(const HitGroup& src) : HitGroup(src.mHitGroupName, src.mClosestHitSymbol, src.mAnyHitSymbol, src.mIntersectionSymbol) {}
+//
+//	std::wstring mHitGroupName;
+//	std::wstring mClosestHitSymbol;
+//	std::wstring mAnyHitSymbol;
+//	std::wstring mIntersectionSymbol;
+//	D3D12_HIT_GROUP_DESC mDesc;
+//};
+//
+//struct RootSigAssociation {
+//	RootSigAssociation(ID3D12RootSignature* rootSignature, const std::vector<std::wstring>& symbols);
+//	RootSigAssociation(const RootSigAssociation& src) : RootSigAssociation(src.mRootSigPtr, src.mSymbols) {}
+//
+//	ID3D12RootSignature* mRootSig;
+//	ID3D12RootSignature* mRootSigPtr;
+//	std::vector<std::wstring> mSymbols;
+//	std::vector<LPCWSTR> mSymbolsPtr;
+//	D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION mAssociation;
+//};
 
 class Dx12Renderer
 {
@@ -86,6 +164,7 @@ public:
 
 	bool Initialise(HINSTANCE hInstance, int nShowCmd);
 	void DeviceRemovedReason();
+	static ID3D12RootSignature* CreateRootSignature(ID3D12Device5* device, const D3D12_ROOT_SIGNATURE_DESC& desc);
 
 protected:
 
@@ -100,93 +179,124 @@ protected:
 	//--------------------
 
 	void CheckRaytracingSupport();
-
-	AccelerationStructBuffers CreateBottomLevelAS(std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t>> vertexBuffers);
-	void CreateTopLevelAS(const std::vector<std::pair<ComPtr<ID3D12Resource>, DirectX::XMMATRIX>>& instances);
 	void CreateAccelerationStructures();
+	void CreateRtPipelineState();
+	void CreateShaderTable();
+	void CreateShaderResources();
 
-	//Bottom Level Acceleration Structure relevant
-	void BotAddVertexBuffer(ID3D12Resource* vertBuffer, UINT64 vertOffsetInBytes, uint32_t vertCount, UINT vertSizeInBytes, ID3D12Resource* transBuffer, UINT64 transOffsetInBytes, bool bOpaque = true);
-	void BotAddVertexBuffer(ID3D12Resource* vertBuffer, UINT64 vertOffsetInBytes, uint32_t vertCount, UINT vertSizeInBytes, ID3D12Resource* indexBuffer, UINT64 indexOffsetInBytes, uint32_t indexCount, ID3D12Resource* transBuffer, UINT64 transOffsetInBytes, bool bOpaque = true);
-	void ComputeBotASBufferSize(ID3D12Device5* device, bool bUpdatable, UINT64* scratchSizeInBytes, UINT64* resultSizeInBytes);
-	void GenerateBotASBuffers(ID3D12GraphicsCommandList4* commandList, ID3D12Resource* scratchBuffer, ID3D12Resource* resultBuffer, bool bUpdateOnly = false, ID3D12Resource* prevResult = nullptr);
+	ComPtr<ID3D12Resource> mVertexBuffer;
+	ComPtr<ID3D12Resource> mTopLvlAS;
+	ComPtr<ID3D12Resource> mBotLvlAS;
+	uint64_t mTlasSize = 0;
 
-	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>	mBotVertexBuffers = {};
-	UINT64 mBotScratchSizeInBytes = 0;
-	UINT64 mBotResultSizeInBytes = 0;
-	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS mBotFlags;
+	ComPtr<ID3D12StateObject> mPipelineState;
+	ComPtr<ID3D12RootSignature> mEmptyRootSig;
+
+	ComPtr<ID3D12Resource> mShaderTable;
+	uint32_t mShaderTableEntrySize = 0;
+
+	ComPtr<ID3D12Resource> mOutputResource;
+	ComPtr<ID3D12DescriptorHeap> mSrvUavHeap;
+	static const uint32_t SRV_UAV_HEAP_SIZE = 2;
+
+	ID3D12Resource* CreateBuffer(ID3D12Device5* device, uint64_t size, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initState, const D3D12_HEAP_PROPERTIES& heapProps);
+	ID3D12Resource* CreateTriangleVB(ID3D12Device5* device);
+	AccelerationStructBuffers CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff);
+	AccelerationStructBuffers CreateTopLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* botLvlAS, uint64_t& tlasSize);
+	
+	ID3DBlob* CompileLibrary(const WCHAR* filename, const WCHAR* targetString);
+	RootSigDesc CreateRayGenRootDesc();
+	DxilLibrary CreateDxilLibrary();
+
+	ID3D12DescriptorHeap* CreateDescriptorHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible);
 
 
-	//Top Level Acceleration Structure Relevant
-	void TopAddInstance(ID3D12Resource* BotLvlAS, const DirectX::XMMATRIX& Trans, UINT InstID, UINT HitGroupIndex);
-	void ComputeTopASBufferSizes(ID3D12Device5* device, bool bUpdatable, UINT64* scratchSizeInBytes, UINT64* resultSizeInBytes, UINT64* descSizeInBytes);
-	void GenerateTopASBuffers(ID3D12GraphicsCommandList4* commandList, ID3D12Resource* scratchBuffer, ID3D12Resource* resultBuffer, ID3D12Resource* descBuffer, bool bUpdateOnly = false, ID3D12Resource* prevResult = nullptr);
+	//AccelerationStructBuffers CreateBottomLevelAS(std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t>> vertexBuffers);
+	//void CreateTopLevelAS(const std::vector<std::pair<ComPtr<ID3D12Resource>, DirectX::XMMATRIX>>& instances);
+	//void CreateAccelerationStructures();
 
-	std::vector<Instance> mTopInstances;
-	UINT64 mTopScratchSizeInBytes = 0;
-	UINT64 mTopInstDescsSizeInBytes = 0;
-	UINT64 mTopResultSizeInBytes = 0;
-	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS mTopFlags;
+	////Bottom Level Acceleration Structure relevant
+	//void BotAddVertexBuffer(ID3D12Resource* vertBuffer, UINT64 vertOffsetInBytes, uint32_t vertCount, UINT vertSizeInBytes, ID3D12Resource* transBuffer, UINT64 transOffsetInBytes, bool bOpaque = true);
+	//void BotAddVertexBuffer(ID3D12Resource* vertBuffer, UINT64 vertOffsetInBytes, uint32_t vertCount, UINT vertSizeInBytes, ID3D12Resource* indexBuffer, UINT64 indexOffsetInBytes, uint32_t indexCount, ID3D12Resource* transBuffer, UINT64 transOffsetInBytes, bool bOpaque = true);
+	//void ComputeBotASBufferSize(ID3D12Device5* device, bool bUpdatable, UINT64* scratchSizeInBytes, UINT64* resultSizeInBytes);
+	//void GenerateBotASBuffers(ID3D12GraphicsCommandList4* commandList, ID3D12Resource* scratchBuffer, ID3D12Resource* resultBuffer, bool bUpdateOnly = false, ID3D12Resource* prevResult = nullptr);
 
-	ComPtr<ID3D12Resource> mBottomLevelAS;
-	AccelerationStructBuffers mTopLevelASBuffers;
-	std::vector<std::pair<ComPtr<ID3D12Resource>, DirectX::XMMATRIX>> mInstances;
+	//std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>	mBotVertexBuffers = {};
+	//UINT64 mBotScratchSizeInBytes = 0;
+	//UINT64 mBotResultSizeInBytes = 0;
+	//D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS mBotFlags;
 
-	//ImplementationFunctionAndProperties
-	ComPtr<ID3D12RootSignature> CreateRayGenSignature();
-	ComPtr<ID3D12RootSignature> CreateMissSignature();
-	ComPtr<ID3D12RootSignature> CreateHitSignature();
-	void CreateRaytracingPipeline();
 
-	ComPtr<IDxcBlob> mRayGenLibrary;
-	ComPtr<IDxcBlob> mHitLibrary;
-	ComPtr<IDxcBlob> mMissLibrary;
-	ComPtr<ID3D12RootSignature> mRayGenSignature;
-	ComPtr<ID3D12RootSignature> mMissSignature;
-	ComPtr<ID3D12RootSignature> mHitSignature;
-	ComPtr<ID3D12StateObject> mRTStateObj;
-	ComPtr<ID3D12StateObjectProperties> mRTStateObjProps;
+	////Top Level Acceleration Structure Relevant
+	//void TopAddInstance(ID3D12Resource* BotLvlAS, const DirectX::XMMATRIX& Trans, UINT InstID, UINT HitGroupIndex);
+	//void ComputeTopASBufferSizes(ID3D12Device5* device, bool bUpdatable, UINT64* scratchSizeInBytes, UINT64* resultSizeInBytes, UINT64* descSizeInBytes);
+	//void GenerateTopASBuffers(ID3D12GraphicsCommandList4* commandList, ID3D12Resource* scratchBuffer, ID3D12Resource* resultBuffer, ID3D12Resource* descBuffer, bool bUpdateOnly = false, ID3D12Resource* prevResult = nullptr);
 
-	//RootSignatureGeneration Relevant
-	void RSAddHeapRangesParam(const std::vector<D3D12_DESCRIPTOR_RANGE>& ranges);
-	void RSAddHeapRangesParam(std::vector<std::tuple<UINT, UINT, UINT, D3D12_DESCRIPTOR_RANGE_TYPE, UINT >> ranges);
-	void RSAddRootParam(D3D12_ROOT_PARAMETER_TYPE type, UINT shaderReg = 0, UINT regSpace = 0, UINT numRootConsts = 1);
-	ID3D12RootSignature* RSGenerate(ID3D12Device* device, bool bLocal);
+	//std::vector<Instance> mTopInstances;
+	//UINT64 mTopScratchSizeInBytes = 0;
+	//UINT64 mTopInstDescsSizeInBytes = 0;
+	//UINT64 mTopResultSizeInBytes = 0;
+	//D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS mTopFlags;
 
-	void RSReset();
+	//ComPtr<ID3D12Resource> mBottomLevelAS;
+	//AccelerationStructBuffers mTopLevelASBuffers;
+	//std::vector<std::pair<ComPtr<ID3D12Resource>, DirectX::XMMATRIX>> mInstances;
 
-	std::vector<std::vector<D3D12_DESCRIPTOR_RANGE>> mRSRanges;
-	std::vector<D3D12_ROOT_PARAMETER> mRSParams;
-	std::vector<UINT> mRSRangeLocs;
+	////ImplementationFunctionAndProperties
+	//ComPtr<ID3D12RootSignature> CreateRayGenSignature();
+	//ComPtr<ID3D12RootSignature> CreateMissSignature();
+	//ComPtr<ID3D12RootSignature> CreateHitSignature();
+	//void CreateRaytracingPipeline();
 
-	enum {
-		RSC_BASE_SHADER_REG = 0,
-		RSC_NUM_DESCS = 1,
-		RSC_REG_SPACE = 2,
-		RSC_RANGE_TYPE = 3,
-		RSC_OFFSET_DESC_FROM_TABLE_START = 4
-	};
+	//ComPtr<IDxcBlob> mRayGenLibrary;
+	//ComPtr<IDxcBlob> mHitLibrary;
+	//ComPtr<IDxcBlob> mMissLibrary;
+	//ComPtr<ID3D12RootSignature> mRayGenSignature;
+	//ComPtr<ID3D12RootSignature> mMissSignature;
+	//ComPtr<ID3D12RootSignature> mHitSignature;
+	//ComPtr<ID3D12StateObject> mRTStateObj;
+	//ComPtr<ID3D12StateObjectProperties> mRTStateObjProps;
 
-	//RayTracingPipelineGeneration Relevant
-	void AddLibrary(IDxcBlob* dxilLibrary, const std::vector<std::wstring>& symbolEx);
-	void AddHitGroup(const std::wstring& hitGroupName, const std::wstring& closestHitSymbol, const std::wstring& anyHitSymbol = L"", const std::wstring& intersectionSymbol = L"");
-	void AddRootSignatureAssociation(ID3D12RootSignature* rootSig, const std::vector<std::wstring>& symbols);
-	void SetMaxPayloadSize(UINT sizeInBytes);
-	void SetMaxAttributeSize(UINT sizeInBytes);
-	void SetMaxRecursionDepth(UINT maxDepth);
-	ID3D12StateObject* RTPipelineGenerate();
+	////RootSignatureGeneration Relevant
+	//void RSAddHeapRangesParam(const std::vector<D3D12_DESCRIPTOR_RANGE>& ranges);
+	//void RSAddHeapRangesParam(std::vector<std::tuple<UINT, UINT, UINT, D3D12_DESCRIPTOR_RANGE_TYPE, UINT >> ranges);
+	//void RSAddRootParam(D3D12_ROOT_PARAMETER_TYPE type, UINT shaderReg = 0, UINT regSpace = 0, UINT numRootConsts = 1);
+	//ID3D12RootSignature* RSGenerate(ID3D12Device* device, bool bLocal);
 
-	void CreateDummyRootSigs();
-	void BuildShaderExList(std::vector<std::wstring>& exSymbols);
+	//void RSReset();
 
-	std::vector<Library> mRTPLibraries;
-	std::vector<HitGroup> mRTPHitGroups;
-	std::vector<RootSigAssociation> mRTPRootSigAssociations;
-	UINT mRTPMaxPayLoadSizeInBytes = 0;
-	UINT mRTPMaxAttributeSizeInBytes = 2 * sizeof(float);
-	UINT mRTPMaxRecursionDepth = 1;
-	ID3D12RootSignature* mRTPDummyLocalRootSig;
-	ID3D12RootSignature* mRTPDummyGlobalRootSig;
+	//std::vector<std::vector<D3D12_DESCRIPTOR_RANGE>> mRSRanges;
+	//std::vector<D3D12_ROOT_PARAMETER> mRSParams;
+	//std::vector<UINT> mRSRangeLocs;
+
+	//enum {
+	//	RSC_BASE_SHADER_REG = 0,
+	//	RSC_NUM_DESCS = 1,
+	//	RSC_REG_SPACE = 2,
+	//	RSC_RANGE_TYPE = 3,
+	//	RSC_OFFSET_DESC_FROM_TABLE_START = 4
+	//};
+
+	////RayTracingPipelineGeneration Relevant
+	//void AddLibrary(IDxcBlob* dxilLibrary, const std::vector<std::wstring>& symbolEx);
+	//void AddHitGroup(const std::wstring& hitGroupName, const std::wstring& closestHitSymbol, const std::wstring& anyHitSymbol = L"", const std::wstring& intersectionSymbol = L"");
+	//void AddRootSignatureAssociation(ID3D12RootSignature* rootSig, const std::vector<std::wstring>& symbols);
+	//void SetMaxPayloadSize(UINT sizeInBytes);
+	//void SetMaxAttributeSize(UINT sizeInBytes);
+	//void SetMaxRecursionDepth(UINT maxDepth);
+	//ID3D12StateObject* RTPipelineGenerate();
+
+	//void CreateDummyRootSigs();
+	//void BuildShaderExList(std::vector<std::wstring>& exSymbols);
+
+	//std::vector<Library> mRTPLibraries;
+	//std::vector<HitGroup> mRTPHitGroups;
+	//std::vector<RootSigAssociation> mRTPRootSigAssociations;
+	//UINT mRTPMaxPayLoadSizeInBytes = 0;
+	//UINT mRTPMaxAttributeSizeInBytes = 2 * sizeof(float);
+	//UINT mRTPMaxRecursionDepth = 1;
+	//ID3D12RootSignature* mRTPDummyLocalRootSig;
+	//ID3D12RootSignature* mRTPDummyGlobalRootSig;
 
 
 	//--------------------
@@ -224,8 +334,8 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
 	ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
-	ComPtr<ID3D12Resource> CreateBuffer(ID3D12Device* device, uint64_t size, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initState, const D3D12_HEAP_PROPERTIES& heapProps);
-	ComPtr<IDxcBlob> CompileShaderLibrary(LPCWSTR filename);
+	//ComPtr<ID3D12Resource> CreateBuffer(ID3D12Device* device, uint64_t size, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initState, const D3D12_HEAP_PROPERTIES& heapProps);
+	//ComPtr<IDxcBlob> CompileShaderLibrary(LPCWSTR filename);
 	void CalculateFrameStats();
 
 	static Dx12Renderer* mApp;
@@ -313,5 +423,25 @@ protected:
 private:
 	static HWND m_mainWindowHWND;
 	std::wstring mMainWndCaption = L"Masters Project - DX12 Renderer ";
+};
+
+struct LocalRootSig {
+	LocalRootSig(ID3D12Device5* device, const D3D12_ROOT_SIGNATURE_DESC& desc) {
+		rootSig = Dx12Renderer::CreateRootSignature(device, desc);
+		subObj.pDesc = &rootSig;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE;
+	}
+	ID3D12RootSignature* rootSig;
+	D3D12_STATE_SUBOBJECT subObj = {};
+};
+
+struct GlobalRootSig {
+	GlobalRootSig(ID3D12Device5* device, const D3D12_ROOT_SIGNATURE_DESC& desc) {
+		rootSig = Dx12Renderer::CreateRootSignature(device, desc);
+		subObj.pDesc = &rootSig;
+		subObj.Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
+	}
+	ID3D12RootSignature* rootSig;
+	D3D12_STATE_SUBOBJECT subObj = {};
 };
 

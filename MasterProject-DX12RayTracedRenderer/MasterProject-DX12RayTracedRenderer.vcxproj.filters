@@ -50,6 +50,9 @@
     <ClInclude Include="FrameResource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dxcapi.use.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -70,7 +73,7 @@
     <FxCompile Include="Miss.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Hit.hlsl">
+    <FxCompile Include="RayGenShaders.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

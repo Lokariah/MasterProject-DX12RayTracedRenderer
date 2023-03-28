@@ -1,20 +1,24 @@
 #pragma once
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <wrl.h>
 #include <comdef.h>
 #include <dxgi1_4.h>
 #include <d3d12.h>
 #include <dxcapi.h>
+#include "dxcapi.use.h"
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
 #include <string>
 #include <memory>
-#include <vector>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <array>
+#include <locale>
+#include <codecvt>
 #include <unordered_map>
 #include <unordered_set>
 #include "d3dx12.h"
@@ -26,6 +30,23 @@ inline std::wstring AnsiToWString(const std::string& str) {
 	WCHAR buffer[512];
 	MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, buffer, 512);
 	return std::wstring(buffer);
+}
+
+template<class blobType>
+std::string convertBlobToString(blobType* blob)
+{
+	std::vector<char> infoLog(blob->GetBufferSize() + 1);
+	memcpy(infoLog.data(), blob->GetBufferPointer(), blob->GetBufferSize());
+	infoLog[blob->GetBufferSize()] = 0;
+	return std::string(infoLog.data());
+}
+
+std::string wstring_2_string(const std::wstring& ws)
+{
+	int count = WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), ws.length(), NULL, 0, NULL, NULL);
+	std::string s(count, 0);
+	WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, &s[0], count, NULL, NULL);
+	return s;
 }
 
 #ifndef ThrowIfFailed
