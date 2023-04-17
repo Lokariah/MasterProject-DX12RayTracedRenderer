@@ -148,6 +148,14 @@ void Dx12Renderer::DeviceRemovedReason()
     size_t size = 100;
     swprintf_s(outString, size, L"Device removed! DXGI_ERROR code: 0x%X\n", reason);
     OutputDebugStringW(outString);
+
+    ComPtr<ID3D12DeviceRemovedExtendedData> dred;
+    ThrowIfFailed(mD3DDevice->QueryInterface(IID_PPV_ARGS(&dred)));
+
+    D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT dredAutoBreadcrumbsOutput;
+    D3D12_DRED_PAGE_FAULT_OUTPUT dredPageFaultOutput;
+    ThrowIfFailed(dred->GetAutoBreadcrumbsOutput(&dredAutoBreadcrumbsOutput));
+    ThrowIfFailed(dred->GetPageFaultAllocationOutput(&dredPageFaultOutput));
 #endif
 }
 
@@ -323,7 +331,7 @@ void Dx12Renderer::CreateShaderResources()
     ThrowIfFailed(mD3DDevice->CreateCommittedResource(&kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr, IID_PPV_ARGS(&mOutputResource))); // Starting as copy-source to simplify onFrameRender()
 
     // Create an SRV/UAV descriptor heap. Need 2 entries - 1 SRV for the scene and 1 UAV for the output
-    mSrvUavHeap = CreateDescriptorHeap(mD3DDevice.Get(), 2, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+    mSrvUavHeap = CreateDescHeap(mD3DDevice.Get(), 2, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
     // Create the UAV. Based on the root signature we created it should be the first entry
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
@@ -349,6 +357,12 @@ bool Dx12Renderer::InitialiseDirect3D()
         ComPtr<ID3D12Debug> debugController;
         ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
         debugController->EnableDebugLayer();
+
+        ComPtr<ID3D12DeviceRemovedExtendedDataSettings> dredSettings;
+        ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&dredSettings)));
+
+        dredSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+        dredSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
     }
     #endif
 
@@ -528,7 +542,7 @@ void Dx12Renderer::Draw(const Timer gameTimer)
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
     mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
-    ThrowIfFailed(mSwapChain->Present(mVSync, 0));
+    ThrowIfFailed(mSwapChain->Present(mVSync, 0)); //
     mCurrBackBuffer = (mCurrBackBuffer + 1) % SWAP_CHAIN_BUFFER_COUNT;
     if (mRaytracing) mCurrFrameResourceRT->fence = ++mCurrFence;
     else mCurrFrameResource->fence = ++mCurrFence;
@@ -1433,7 +1447,7 @@ DxilLibrary Dx12Renderer::CreateDxilLibrary()
     return DxilLibrary(pDxilLib, entryPoints, sizeof(entryPoints)/sizeof(entryPoints[0]));
 }
 
-ID3D12DescriptorHeap* Dx12Renderer::CreateDescriptorHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible)
+ID3D12DescriptorHeap* Dx12Renderer::CreateDescHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible)
 {
     D3D12_DESCRIPTOR_HEAP_DESC desc = {};
     desc.NumDescriptors = count;

@@ -215,7 +215,7 @@ namespace Dx12MasterProject {
 		RootSigDesc CreateRayGenRootDesc();
 		DxilLibrary CreateDxilLibrary();
 
-		ID3D12DescriptorHeap* CreateDescriptorHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible);
+		ID3D12DescriptorHeap* CreateDescHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible);
 
 
 		//AccelerationStructBuffers CreateBottomLevelAS(std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t>> vertexBuffers);
@@ -378,6 +378,7 @@ namespace Dx12MasterProject {
 		ComPtr<ID3D12DescriptorHeap>		mDSVHeap = nullptr;
 		ComPtr<ID3D12DescriptorHeap>		mCBVHeap = nullptr;
 		ComPtr<ID3D12DescriptorHeap>		mSRVDescHeap = nullptr;
+
 
 		std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeos;
 		std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
