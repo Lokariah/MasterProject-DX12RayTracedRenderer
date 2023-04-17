@@ -1,11 +1,3 @@
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGenShaders.cso
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGen.cso
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.MdMergeInputs.cache
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_plat.cache
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_comp.cache
 D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso
 D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso
 D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\RayGenShaders.cso
@@ -14,3 +6,11 @@ D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Rele
 D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.MdMergeInputs.cache
 D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_plat.cache
 D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_comp.cache
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGenShaders.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\RayGen.cso
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.MdMergeInputs.cache
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_plat.cache
+D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_comp.cache
