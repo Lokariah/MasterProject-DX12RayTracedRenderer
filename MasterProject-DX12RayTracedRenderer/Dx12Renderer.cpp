@@ -156,6 +156,7 @@ void Dx12Renderer::DeviceRemovedReason()
     D3D12_DRED_PAGE_FAULT_OUTPUT dredPageFaultOutput;
     ThrowIfFailed(dred->GetAutoBreadcrumbsOutput(&dredAutoBreadcrumbsOutput));
     ThrowIfFailed(dred->GetPageFaultAllocationOutput(&dredPageFaultOutput));
+    int i = 6;
 #endif
 }
 

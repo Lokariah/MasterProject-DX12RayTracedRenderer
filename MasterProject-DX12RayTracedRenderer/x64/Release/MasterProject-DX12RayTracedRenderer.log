@@ -1,9 +1,6 @@
-﻿  Dx12Renderer.cpp
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Utility.h(46,90): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
-D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\MasterProject-DX12RayTracedRenderer\Dx12Renderer.cpp(1338,57): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
-  Generating code
-  31 of 1809 functions ( 1.7%) were compiled, the rest were copied from previous compilation.
-    1 functions were new in current compilation
-    17 functions had inline decision re-evaluated but remain unchanged
-  Finished generating code
-  MasterProject-DX12RayTracedRenderer.vcxproj -> D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe
+﻿  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso
+  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso
+  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso
+  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\RayGen.cso
+  The system cannot find the path specified.
+D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\packages\Microsoft.Windows.CppWinRT.2.0.220531.1\build\native\Microsoft.Windows.CppWinRT.targets(661,9): error MSB3073: The command ""D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\packages\Microsoft.Windows.CppWinRT.2.0.220531.1\build\native\..\..\bin\"cppwinrt @"x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_plat.rsp"" exited with code 3.
