@@ -125,16 +125,11 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
         DirectX::XMFLOAT3 temp2 = { 0.0f, 0.0f, 0.0f };
         DirectX::XMFLOAT3 temp3 = { 0.0f, 1.0f, 0.0f };
 
-        //DirectX::XMStoreFloat3(&temp2 ,DirectX::XMVectorZero());
-        //DirectX::XMFLOAT3 temp3 = mainCamera.GetUpVector();
-
         mainCamera.SetPos(temp);
         mainCamera.LookAt(temp, temp2, temp3);
         mainCamera.UpdateViewMatrix();
     }
-   //CheckRaytracingSupport();
-   //CreateAccelerationStructures();
-   //CreateRaytracingPipeline();
+
     FlushCommandQueue();
 
     return true;
@@ -474,6 +469,9 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         mCommandList->ResourceBarrier(1, &barrier);
     }
     else {
+        ID3D12DescriptorHeap* heaps[] = { mSrvUavHeap.Get()};
+        mCommandList->SetDescriptorHeaps(sizeof(heaps) / sizeof(heaps[0]), heaps);
+
        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
             D3D12_RESOURCE_STATE_PRESENT,
             D3D12_RESOURCE_STATE_RENDER_TARGET);

@@ -54,7 +54,6 @@ struct FrameResourceRT
 public:
 
 	ComPtr<ID3D12CommandAllocator> cmdListAllocator;
-
 	FrameResourceRT(ID3D12Device* device) {
 		auto cmdListAllocAddress = cmdListAllocator.GetAddressOf();
 		ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(cmdListAllocAddress)));
