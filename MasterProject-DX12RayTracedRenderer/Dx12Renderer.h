@@ -358,6 +358,8 @@ namespace Dx12MasterProject {
 		bool mVSync = false;
 		bool mRaytracing = true;
 
+		const int mRTInstanceCount = 3;
+
 		DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 		DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		static const UINT SWAP_CHAIN_BUFFER_COUNT = 2;

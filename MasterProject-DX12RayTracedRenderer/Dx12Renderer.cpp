@@ -1318,7 +1318,7 @@ AccelerationStructBuffers Dx12Renderer::CreateTopLevelAS(ID3D12Device5* device, 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
-    inputs.NumDescs = 1;
+    inputs.NumDescs = mRTInstanceCount; 
     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
@@ -1331,19 +1331,26 @@ AccelerationStructBuffers Dx12Renderer::CreateTopLevelAS(ID3D12Device5* device, 
     tlasSize = info.ResultDataMaxSizeInBytes;
 
     // The instance desc should be inside a buffer, create and map the buffer
-    buffers.pInstanceDesc = CreateBuffer(device, sizeof(D3D12_RAYTRACING_INSTANCE_DESC), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    buffers.pInstanceDesc = CreateBuffer(device, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * mRTInstanceCount, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
     D3D12_RAYTRACING_INSTANCE_DESC* pInstanceDesc;
     buffers.pInstanceDesc->Map(0, nullptr, (void**)&pInstanceDesc);
+    ZeroMemory(pInstanceDesc, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * mRTInstanceCount);
 
-    // Initialize the instance desc. We only have a single instance
-    pInstanceDesc->InstanceID = 0;                            // This value will be exposed to the shader via InstanceID()
-    pInstanceDesc->InstanceContributionToHitGroupIndex = 0;   // This is the offset inside the shader-table. We only have a single geometry, so the offset 0
-    pInstanceDesc->Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
-    DirectX::XMFLOAT4X4 m = IDENTITY_MATRIX; // Identity matrix
-    memcpy(pInstanceDesc->Transform, &m, sizeof(pInstanceDesc->Transform));
-    pInstanceDesc->AccelerationStructure = botLvlAS->GetGPUVirtualAddress();
-    pInstanceDesc->InstanceMask = 0xFF;
+    DirectX::XMMATRIX trans[3];
+    trans[0] = trans[1] = trans[2] = DirectX::XMMatrixIdentity();
+    trans[1] = DirectX::XMMatrixTranslation(-2.0f, 0.0f, 0.0f);
+    trans[2] = DirectX::XMMatrixTranslation(2.0f, 0.0f, 0.0f);
 
+    for (uint32_t i = 0; i < mRTInstanceCount; i++) {
+        // Initialize the instance desc. We only have a single instance
+        pInstanceDesc[i].InstanceID = i;                            // This value will be exposed to the shader via InstanceID()
+        pInstanceDesc[i].InstanceContributionToHitGroupIndex = 0;   // This is the offset inside the shader-table. We only have a single geometry, so the offset 0
+        pInstanceDesc[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+        DirectX::XMMATRIX m = DirectX::XMMatrixTranspose(trans[i]); // Identity matrix
+        memcpy(pInstanceDesc[i].Transform, &m, sizeof(pInstanceDesc[i].Transform));
+        pInstanceDesc[i].AccelerationStructure = botLvlAS->GetGPUVirtualAddress();
+        pInstanceDesc[i].InstanceMask = 0xFF;
+    }
     // Unmap
     buffers.pInstanceDesc->Unmap(0, nullptr);
 
