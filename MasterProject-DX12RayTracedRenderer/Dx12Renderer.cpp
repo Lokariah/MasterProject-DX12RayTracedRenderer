@@ -53,8 +53,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
 
 Dx12Renderer::Dx12Renderer(HINSTANCE hInstance) : mAppInst(hInstance)
 {
-    //assert(mApp == nullptr);
-    //mApp = this;
+
 }
 
 Dx12Renderer::~Dx12Renderer()
@@ -427,6 +426,7 @@ void Dx12Renderer::Draw(const Timer gameTimer)
     }
     else {
         auto cmdListAllocation = mCurrFrameResourceRT->cmdListAllocator;
+        ThrowIfFailed(cmdListAllocation->Reset());
         ThrowIfFailed(mCommandList->Reset(cmdListAllocation.Get(), nullptr));
     }
 
@@ -478,16 +478,11 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         mCommandList->ResourceBarrier(1, &barrier);
         mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Sienna, 0, nullptr);
         mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-        //auto backBufferView = CurrentBackBufferView();
-        //auto depthStencilView = DepthStencilView();
-        //mCommandList->OMSetRenderTargets(1, &backBufferView, true, &depthStencilView);
-
 
         barrier = CD3DX12_RESOURCE_BARRIER::Transition(mOutputResource.Get(),
             D3D12_RESOURCE_STATE_COPY_SOURCE,
             D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
         mCommandList->ResourceBarrier(1, &barrier);
-
 
         D3D12_DISPATCH_RAYS_DESC raytraceDesc = {};
         raytraceDesc.Width = mClientWidth;
