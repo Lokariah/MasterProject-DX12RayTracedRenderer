@@ -1,6 +1,15 @@
 RaytracingAccelerationStructure gRtScene : register(t0);
 RWTexture2D<float4> gOutput : register(u0);
 
+
+cbuffer cbRtPerFrame : register(b0)
+{
+    float3 gTriangleColour1;
+    float3 gTriangleColour2;
+    float3 gTriangleColour3;
+}
+//#include "common.hlsli"
+
 float3 linearToSrgb(float3 c)
 {
     // Based on http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html
@@ -50,11 +59,8 @@ void Miss(inout RayPayload payload)
 [shader("closesthit")]
 void Hit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
 {
+    uint instanceID = InstanceID();
     float3 barycentrics = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
 
-    const float3 A = float3(1, 0, 0);
-    const float3 B = float3(0, 1, 0);
-    const float3 C = float3(0, 0, 1);
-
-    payload.color = A * barycentrics.x + B * barycentrics.y + C * barycentrics.z;
+    payload.color = gTriangleColour1 * barycentrics.x + gTriangleColour2 * barycentrics.y + gTriangleColour3 * barycentrics.z;
 }

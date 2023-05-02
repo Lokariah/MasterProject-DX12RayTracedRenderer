@@ -103,6 +103,7 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
         CreateAccelerationStructures();
         CreateRtPipelineState();
         CreateShaderResources();
+        CreateConstantBufferRT();
         CreateShaderTable();
         BuildFrameResourcesRT();
     }
@@ -186,9 +187,17 @@ void Dx12Renderer::CheckRaytracingSupport()
 
 void Dx12Renderer::CreateAccelerationStructures()
 {
-    mVertexBuffer = CreateTriangleVB(mD3DDevice.Get());
-    AccelerationStructBuffers bottomLevelBuffers = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer.Get());
-    AccelerationStructBuffers topLevelBuffers = CreateTopLevelAS(mD3DDevice.Get(), mCommandList.Get(), bottomLevelBuffers.pResult.Get(), mTlasSize);
+    mVertexBuffer[0] = CreateTriangleVB(mD3DDevice.Get());
+    mVertexBuffer[1] = CreatePlaneVB(mD3DDevice.Get());
+    AccelerationStructBuffers botLevelBuffers[2];
+
+    const uint32_t vertexCount[] = { 3, 6 };
+    botLevelBuffers[0] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, 2);
+    mBotLvlAS[0] = botLevelBuffers[0].pResult;
+    botLevelBuffers[1] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, 1);
+    mBotLvlAS[1] = botLevelBuffers[1].pResult;
+
+    AccelerationStructBuffers topLevelBuffers = CreateTopLevelAS(mD3DDevice.Get(), mCommandList.Get(), mBotLvlAS->Get(), mTlasSize);
 
     ThrowIfFailed(mCommandList->Close());
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
@@ -198,20 +207,20 @@ void Dx12Renderer::CreateAccelerationStructures()
 
     // Store the AS buffers. The rest of the buffers will be released once we exit the function
     mTopLvlAS = topLevelBuffers.pResult;
-    mBotLvlAS = bottomLevelBuffers.pResult;
 }
 
 void Dx12Renderer::CreateRtPipelineState()
 {
-    // Need 10 subobjects:
+    // Need 12 subobjects:
     //  1 for the DXIL library
     //  1 for hit-group
     //  2 for RayGen root-signature (root-signature and the subobject association)
-    //  2 for the root-signature shared between miss and hit shaders (signature and association)
+    //  2 for the root-signature hit shaders (signature and association)
+    //  2 for the root-signature miss shaders (signature and association)
     //  2 for shader config (shared between all programs. 1 for the config, 1 for association)
     //  1 for pipeline config
     //  1 for the global root signature
-    std::array<D3D12_STATE_SUBOBJECT, 10> subObj;
+    std::array<D3D12_STATE_SUBOBJECT, 12> subObj;
     uint32_t index = 0;
 
     // Create the DXIL library
@@ -229,38 +238,45 @@ void Dx12Renderer::CreateRtPipelineState()
     ExportAssociation rgsRootAssociation(&RAY_GEN_SHADER, 1, &(subObj[rgsRootIndex]));
     subObj[index++] = rgsRootAssociation.subObj; // 3 Associate Root Sig to RGS
 
+    //Hit Root Signature and Associations 4
+    LocalRootSig hitRootSig(mD3DDevice.Get(), CreateHitRootDesc().desc);
+    subObj[index] = hitRootSig.subObj;
+
+    uint32_t hitRootIndex = index++;
+    ExportAssociation hitRootAssociation(&CLOSEST_HIT_SHADER, 1, &(subObj[hitRootIndex]));
+    subObj[index++] = hitRootAssociation.subObj; //5
+
     // Create the miss- and hit-programs root-signature and association
     D3D12_ROOT_SIGNATURE_DESC emptyDesc = {};
     emptyDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-    LocalRootSig hitMissRootSignature(mD3DDevice.Get(), emptyDesc);
-    subObj[index] = hitMissRootSignature.subObj; // 4 Root Sig to be shared between Miss and CHS
+    LocalRootSig missRootSignature(mD3DDevice.Get(), emptyDesc);
+    subObj[index] = missRootSignature.subObj; // 6
 
-    uint32_t hitMissRootIndex = index++; // 4
-    const WCHAR* missHitExportName[] = { MISS_SHADER, CLOSEST_HIT_SHADER };
-    ExportAssociation missHitRootAssociation(missHitExportName, (sizeof(missHitExportName) / sizeof(missHitExportName[0])), &(subObj[hitMissRootIndex]));
-    subObj[index++] = missHitRootAssociation.subObj; // 5 Associate Root Sig to Miss and CHS
+    uint32_t missRootIndex = index++; // 6
+    ExportAssociation missRootAssociation(&MISS_SHADER, 1, &(subObj[missRootIndex]));
+    subObj[index++] = missRootAssociation.subObj; // 7 
 
     // Bind the payload size to the programs
     ShaderConfig shaderConfig(sizeof(float) * 2, sizeof(float) * 3);
-    subObj[index] = shaderConfig.subObj; // 6 Shader Config
+    subObj[index] = shaderConfig.subObj; // 8 Shader Config
 
-    uint32_t shaderConfigIndex = index++; // 6
+    uint32_t shaderConfigIndex = index++; //8
     const WCHAR* shaderExports[] = { MISS_SHADER, CLOSEST_HIT_SHADER, RAY_GEN_SHADER };
     ExportAssociation configAssociation(shaderExports, (sizeof(shaderExports) / sizeof(shaderExports[0])), &(subObj[shaderConfigIndex]));
-    subObj[index++] = configAssociation.subObj; // 7 Associate Shader Config to Miss, CHS, RGS
+    subObj[index++] = configAssociation.subObj; // 9 Associate Shader Config to shaders
 
     // Create the pipeline config
     PipelineConfig config(1);
-    subObj[index++] = config.subObj; // 8
+    subObj[index++] = config.subObj; // 10
 
     // Create the global root signature and store the empty signature
     GlobalRootSig root(mD3DDevice.Get(), {});
     mEmptyRootSig = root.rootSig;
-    subObj[index++] = root.subObj; // 9
+    subObj[index++] = root.subObj; // 11
 
     // Create the state
     D3D12_STATE_OBJECT_DESC desc;
-    desc.NumSubobjects = index; // 10
+    desc.NumSubobjects = index; // 12
     desc.pSubobjects = subObj.data();
     desc.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
 
@@ -282,7 +298,7 @@ void Dx12Renderer::CreateShaderTable()
     mShaderTableEntrySize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
     mShaderTableEntrySize += 8; // The ray-gen's descriptor table
     mShaderTableEntrySize = Utility::RoundUp(mShaderTableEntrySize, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-    uint32_t shaderTableSize = mShaderTableEntrySize * 3;
+    uint32_t shaderTableSize = mShaderTableEntrySize * 5;
 
     // For simplicity, we create the shader-table on the upload heap. You can also create it on the default heap
     mShaderTable = CreateBuffer(mD3DDevice.Get(), shaderTableSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
@@ -303,11 +319,44 @@ void Dx12Renderer::CreateShaderTable()
     memcpy(pData + mShaderTableEntrySize, pRtsoProps->GetShaderIdentifier(MISS_SHADER), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
 
     // Entry 2 - hit program
-    uint8_t* pHitEntry = pData + mShaderTableEntrySize * 2; // +2 skips the ray-gen and miss entries
-    memcpy(pHitEntry, pRtsoProps->GetShaderIdentifier(HIT_GROUP), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
-
+    for (uint32_t i = 0; i < 3; i++) {
+        uint8_t* pHitEntry = pData + mShaderTableEntrySize * (i+2); // +2 skips the ray-gen and miss entries
+        memcpy(pHitEntry, pRtsoProps->GetShaderIdentifier(HIT_GROUP), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
+        uint8_t* pCBDesc = pHitEntry + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
+        assert(((uint64_t)pCBDesc % 8) == 0);
+        *(D3D12_GPU_VIRTUAL_ADDRESS*)pCBDesc = mConstantBufferRT[i]->GetGPUVirtualAddress();
+    }
     // Unmap
     mShaderTable->Unmap(0, nullptr);
+}
+
+void Dx12Renderer::CreateConstantBufferRT()
+{
+    DirectX::XMFLOAT4 bufferData[] = {
+        //A
+        DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f),
+        DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f),
+        DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f),
+
+        //B
+        DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f),
+        DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f),
+        DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f),
+
+        //C
+        DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f),
+        DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f),
+        DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f),
+    };
+
+    for (uint32_t i = 0; i < 3; i++) {
+        const uint32_t buffSize = sizeof(DirectX::XMFLOAT4) *  3;
+        mConstantBufferRT[i] = CreateBuffer(mD3DDevice.Get(), sizeof(buffSize), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+        uint8_t* pData;
+        ThrowIfFailed(mConstantBufferRT[i]->Map(0, nullptr, (void**)&pData));
+        memcpy(pData, &bufferData[i * 3], sizeof(bufferData));
+        mConstantBufferRT[i]->Unmap(0, nullptr);
+    }
 }
 
 void Dx12Renderer::CreateShaderResources()
@@ -503,7 +552,7 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         size_t hitOffset = 2 * mShaderTableEntrySize;
         raytraceDesc.HitGroupTable.StartAddress = mShaderTable->GetGPUVirtualAddress() + hitOffset;
         raytraceDesc.HitGroupTable.StrideInBytes = mShaderTableEntrySize;
-        raytraceDesc.HitGroupTable.SizeInBytes = mShaderTableEntrySize;
+        raytraceDesc.HitGroupTable.SizeInBytes = mShaderTableEntrySize * 3;
 
         //// Bind the empty root signature
         mCommandList->SetComputeRootSignature(mEmptyRootSig.Get());
@@ -1264,22 +1313,52 @@ ID3D12Resource* Dx12Renderer::CreateTriangleVB(ID3D12Device5* device)
     return buffer;
 }
 
-AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff)
+ID3D12Resource* Dx12Renderer::CreateCubeVB(ID3D12Device5* device)
 {
-    D3D12_RAYTRACING_GEOMETRY_DESC geomDesc = {};
-    geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-    geomDesc.Triangles.VertexBuffer.StartAddress = vertBuff->GetGPUVirtualAddress();
-    geomDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(DirectX::XMFLOAT3);
-    geomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-    geomDesc.Triangles.VertexCount = 3;
-    geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+    return nullptr;
+}
+
+ID3D12Resource* Dx12Renderer::CreatePlaneVB(ID3D12Device5* device)
+{
+    const DirectX::XMFLOAT3 vertices[] =
+    {
+        DirectX::XMFLOAT3(-100.0f, -1.0f,  -2.0f),
+        DirectX::XMFLOAT3( 100.0f, -1.0f, 100.0f),
+        DirectX::XMFLOAT3(-100.0f, -1.0f, 100.0f),
+
+        DirectX::XMFLOAT3(-100.0f, -1.0f, -2.0f),
+        DirectX::XMFLOAT3( 100.0f, -1.0f, -2.0f),
+        DirectX::XMFLOAT3( 100.0f, -1.0f, 100.0f),
+    };
+
+    ID3D12Resource* buffer = CreateBuffer(device, sizeof(vertices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    uint8_t* data;
+    buffer->Map(0, nullptr, (void**)&data);
+    memcpy(data, vertices, sizeof(vertices));
+    buffer->Unmap(0, nullptr);
+    return buffer;
+}
+
+AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], uint32_t geomCount)
+{
+    std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDesc;
+    geomDesc.resize(geomCount);
+
+    for (uint32_t i = 0; i < geomCount; i++) {
+        geomDesc[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+        geomDesc[i].Triangles.VertexBuffer.StartAddress = vertBuff[i]->GetGPUVirtualAddress();
+        geomDesc[i].Triangles.VertexBuffer.StrideInBytes = sizeof(DirectX::XMFLOAT3);
+        geomDesc[i].Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+        geomDesc[i].Triangles.VertexCount = 3;
+        geomDesc[i].Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+    }
 
     // Get the size requirements for the scratch and AS buffers
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
-    inputs.NumDescs = 1;
-    inputs.pGeometryDescs = &geomDesc;
+    inputs.NumDescs = geomCount;
+    inputs.pGeometryDescs = geomDesc.data();
     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info = {};
@@ -1336,10 +1415,18 @@ AccelerationStructBuffers Dx12Renderer::CreateTopLevelAS(ID3D12Device5* device, 
     trans[1] = DirectX::XMMatrixTranslation(-2.0f, 0.0f, 0.0f);
     trans[2] = DirectX::XMMatrixTranslation(2.0f, 0.0f, 0.0f);
 
-    for (uint32_t i = 0; i < mRTInstanceCount; i++) {
+    pInstanceDesc[0].InstanceID = 0;
+    pInstanceDesc[0].InstanceContributionToHitGroupIndex = 0;
+    pInstanceDesc[0].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+    memcpy(pInstanceDesc[0].Transform, &trans[0], sizeof(pInstanceDesc[0].Transform));
+    pInstanceDesc[0].AccelerationStructure = botLvlAS[0].GetGPUVirtualAddress();
+    pInstanceDesc[0].InstanceMask = 0xFF;
+    
+
+    for (uint32_t i = 1; i < mRTInstanceCount; i++) {
         // Initialize the instance desc. We only have a single instance
         pInstanceDesc[i].InstanceID = i;                            // This value will be exposed to the shader via InstanceID()
-        pInstanceDesc[i].InstanceContributionToHitGroupIndex = 0;   // This is the offset inside the shader-table. We only have a single geometry, so the offset 0
+        pInstanceDesc[i].InstanceContributionToHitGroupIndex = i;   // This is the offset inside the shader-table. We only have a single geometry, so the offset 0
         pInstanceDesc[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
         DirectX::XMMATRIX m = DirectX::XMMatrixTranspose(trans[i]); // Identity matrix
         memcpy(pInstanceDesc[i].Transform, &m, sizeof(pInstanceDesc[i].Transform));
@@ -1433,6 +1520,21 @@ RootSigDesc Dx12Renderer::CreateRayGenRootDesc()
     desc.rootParams[0].DescriptorTable.pDescriptorRanges = desc.range.data();
 
     // Create the desc
+    desc.desc.NumParameters = 1;
+    desc.desc.pParameters = desc.rootParams.data();
+    desc.desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
+
+    return desc;
+}
+
+RootSigDesc Dx12Renderer::CreateHitRootDesc()
+{
+    RootSigDesc desc;
+    desc.rootParams.resize(1);
+    desc.rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    desc.rootParams[0].Descriptor.RegisterSpace = 0;
+    desc.rootParams[0].Descriptor.ShaderRegister = 0;
+
     desc.desc.NumParameters = 1;
     desc.desc.pParameters = desc.rootParams.data();
     desc.desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;

@@ -152,12 +152,13 @@ namespace Dx12MasterProject {
 		void CreateAccelerationStructures();
 		void CreateRtPipelineState();
 		void CreateShaderTable();
+		void CreateConstantBufferRT();
 		void CreateShaderResources();
 		void BuildFrameResourcesRT();
 
-		ComPtr<ID3D12Resource> mVertexBuffer;
+		ComPtr<ID3D12Resource> mVertexBuffer[2];
 		ComPtr<ID3D12Resource> mTopLvlAS;
-		ComPtr<ID3D12Resource> mBotLvlAS;
+		ComPtr<ID3D12Resource> mBotLvlAS[2];
 		std::uint64_t mTlasSize = 0;
 
 		ComPtr<ID3D12StateObject> mPipelineState;
@@ -170,16 +171,21 @@ namespace Dx12MasterProject {
 		ComPtr<ID3D12DescriptorHeap> mSrvUavHeap;
 		static const uint32_t SRV_UAV_HEAP_SIZE = 2;
 
+		ComPtr<ID3D12Resource> mConstantBufferRT[3];
+
 		std::vector<std::unique_ptr<FrameResourceRT>> mFrameResourcesRT;
 		FrameResourceRT* mCurrFrameResourceRT = nullptr;
 
 		ID3D12Resource* CreateBuffer(ID3D12Device5* device, std::uint64_t size, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initState, const D3D12_HEAP_PROPERTIES& heapProps);
 		ID3D12Resource* CreateTriangleVB(ID3D12Device5* device);
-		AccelerationStructBuffers CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff);
+		ID3D12Resource* CreateCubeVB(ID3D12Device5* device);
+		ID3D12Resource* CreatePlaneVB(ID3D12Device5* device);
+		AccelerationStructBuffers CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], uint32_t geomCount);
 		AccelerationStructBuffers CreateTopLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* botLvlAS, std::uint64_t& tlasSize);
 
 		ID3DBlob* CompileLibrary(const WCHAR* filename, const WCHAR* targetString);
 		RootSigDesc CreateRayGenRootDesc();
+		RootSigDesc CreateHitRootDesc();
 		DxilLibrary CreateDxilLibrary();
 
 		ID3D12DescriptorHeap* CreateDescHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible);

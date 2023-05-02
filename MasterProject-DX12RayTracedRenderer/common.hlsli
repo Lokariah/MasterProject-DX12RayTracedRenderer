@@ -1,4 +1,4 @@
-cbuffer cbPerObject : register(b0)
+cbuffer cbPerObject : register(b2)
 {
     float4x4 gWorld;
 };
@@ -20,6 +20,13 @@ cbuffer cbPass : register(b1)
     float gTotalTime;
     float gFrameTime;
 };
+
+//cbuffer cbRtPerFrame : register(b0)
+//{
+//    float3 gTriangleColour1[3];
+//    float3 gTriangleColour2[3];
+//    float3 gTriangleColour3[3];
+//}
 
 struct vertexIn
 {
