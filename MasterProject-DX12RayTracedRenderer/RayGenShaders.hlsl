@@ -45,7 +45,7 @@ void RayGen()
     ray.TMax = 100000;
 
     RayPayload payload;
-    TraceRay(gRtScene, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, 0, 0, ray, payload);
+    TraceRay(gRtScene, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, 2, 0, ray, payload);
     float3 col = linearToSrgb(payload.color);
     gOutput[launchIndex.xy] = float4(col, 1);
 }
@@ -59,8 +59,45 @@ void Miss(inout RayPayload payload)
 [shader("closesthit")]
 void Hit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
 {
-    uint instanceID = InstanceID();
     float3 barycentrics = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
 
     payload.color = gTriangleColour1 * barycentrics.x + gTriangleColour2 * barycentrics.y + gTriangleColour3 * barycentrics.z;
+}
+
+struct ShadowPayload
+{
+    bool hit;
+};
+
+[shader("closesthit")]
+void PlaneHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
+{
+    float hitT = RayTCurrent();
+    float3 rayDirWorld = WorldRayDirection();
+    float3 rayOriginWorld = WorldRayOrigin();
+    
+    float3 posW = rayOriginWorld + hitT * rayDirWorld;
+    
+    RayDesc ray;
+    ray.Origin = posW;
+    ray.Direction = normalize(float3(0.5f, 0.5f, -0.5f));
+    ray.TMin = 0.01f;
+    ray.TMax = 100000.0f;
+    ShadowPayload shadowPayload;
+    TraceRay(gRtScene, 0 /*rayFlags*/, 0xFF, 1 /* ray index*/, 0, 1, ray, shadowPayload);
+    
+    float factor = shadowPayload.hit ? 0.1f : 1.0f;
+    payload.color = float4(0.9f, 0.9f, 0.9f, 1.0f) * factor;
+}
+
+[shader("closesthit")]
+void ShadowHit(inout ShadowPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
+{
+    payload.hit = true;
+}
+
+[shader("miss")]
+void ShadowMiss(inout ShadowPayload payload)
+{
+    payload.hit = false;
 }

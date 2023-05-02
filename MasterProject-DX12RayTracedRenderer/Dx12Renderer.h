@@ -157,7 +157,8 @@ namespace Dx12MasterProject {
 		void BuildFrameResourcesRT();
 
 		ComPtr<ID3D12Resource> mVertexBuffer[2];
-		ComPtr<ID3D12Resource> mTopLvlAS;
+		AccelerationStructBuffers mTopLvlBuffers;
+		//ComPtr<ID3D12Resource> mTopLvlAS;
 		ComPtr<ID3D12Resource> mBotLvlAS[2];
 		std::uint64_t mTlasSize = 0;
 
@@ -181,14 +182,17 @@ namespace Dx12MasterProject {
 		ID3D12Resource* CreateCubeVB(ID3D12Device5* device);
 		ID3D12Resource* CreatePlaneVB(ID3D12Device5* device);
 		AccelerationStructBuffers CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], uint32_t geomCount);
-		AccelerationStructBuffers CreateTopLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* botLvlAS, std::uint64_t& tlasSize);
+		void BuildTopLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* botLvlAS[], std::uint64_t& tlasSize, float rotation, bool bUpdate, AccelerationStructBuffers& buffers);
 
 		ID3DBlob* CompileLibrary(const WCHAR* filename, const WCHAR* targetString);
 		RootSigDesc CreateRayGenRootDesc();
-		RootSigDesc CreateHitRootDesc();
+		RootSigDesc CreateTriHitRootDesc();
+		RootSigDesc CreatePlaneHitRootDesc();
 		DxilLibrary CreateDxilLibrary();
 
 		ID3D12DescriptorHeap* CreateDescHeap(ID3D12Device5* device, uint32_t count, D3D12_DESCRIPTOR_HEAP_TYPE type, bool bShaderVisible);
+
+		float mRotation = 0;
 
 		//--------------------
 		//RasterizerFunctions
