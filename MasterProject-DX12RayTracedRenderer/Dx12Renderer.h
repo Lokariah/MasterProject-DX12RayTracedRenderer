@@ -116,6 +116,11 @@ namespace Dx12MasterProject {
 		D3D12_STATE_SUBOBJECT subObj = {};
 	};
 
+	struct RTVertexBufferLayout {
+		DirectX::XMFLOAT3 vertexPos;
+		DirectX::XMFLOAT3 vertexNorm;
+	};
+
 	class Dx12Renderer
 	{
 	public:
@@ -156,7 +161,8 @@ namespace Dx12MasterProject {
 		void CreateShaderResources();
 		void BuildFrameResourcesRT();
 
-		ComPtr<ID3D12Resource> mVertexBuffer[2];
+		ComPtr<ID3D12Resource> mVertexBuffer[3];
+		ComPtr<ID3D12Resource> mIndexBuffer[3];
 		AccelerationStructBuffers mTopLvlBuffers;
 		//ComPtr<ID3D12Resource> mTopLvlAS;
 		ComPtr<ID3D12Resource> mBotLvlAS[2];
@@ -178,10 +184,10 @@ namespace Dx12MasterProject {
 		FrameResourceRT* mCurrFrameResourceRT = nullptr;
 
 		ID3D12Resource* CreateBuffer(ID3D12Device5* device, std::uint64_t size, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initState, const D3D12_HEAP_PROPERTIES& heapProps);
-		ID3D12Resource* CreateTriangleVB(ID3D12Device5* device);
-		ID3D12Resource* CreateCubeVB(ID3D12Device5* device);
-		ID3D12Resource* CreatePlaneVB(ID3D12Device5* device);
-		AccelerationStructBuffers CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], uint32_t geomCount);
+		void CreateTriangleVB(ID3D12Device5* device, ID3D12Resource* vertexBuff[], ID3D12Resource* indexBuff[], int index);
+		void CreateCubeVB(ID3D12Device5* device, ID3D12Resource* vertexBuff[], ID3D12Resource* indexBuff[], int index, float width, float height, float length);
+		void CreatePlaneVB(ID3D12Device5* device, ID3D12Resource* vertexBuff[], ID3D12Resource* indexBuff[], int index, float width, float length, float heightOffset);
+		AccelerationStructBuffers CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], ID3D12Resource* indexBuff[], const uint32_t indexCount[], uint32_t geomCount);
 		void BuildTopLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* botLvlAS[], std::uint64_t& tlasSize, float rotation, bool bUpdate, AccelerationStructBuffers& buffers);
 
 		ID3DBlob* CompileLibrary(const WCHAR* filename, const WCHAR* targetString);
@@ -240,7 +246,9 @@ namespace Dx12MasterProject {
 		UINT mDSVDescriptorSize = 0;
 		UINT mCBVSRVUAVDescriptorSize = 0;
 
+		UINT m4xMSAACount = 4;
 		UINT m4xMSAAQuality = 0;
+		DXGI_FORMAT MSAADepthFormat = DXGI_FORMAT_D32_FLOAT;
 		bool m4xMSAAState = false;
 
 		bool mVSync = false;
@@ -285,7 +293,6 @@ namespace Dx12MasterProject {
 		std::unique_ptr<MeshGeometry> mBoxGeometry;
 		ComPtr<ID3DBlob> mvsByteCode;
 		ComPtr<ID3DBlob> mpsByteCode;
-
 		//ComPtr<ID3D12PipelineState> mPSO;
 
 		std::vector<std::unique_ptr<FrameResource>> mFrameResources;

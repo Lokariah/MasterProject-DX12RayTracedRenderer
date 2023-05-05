@@ -1,4 +1,4 @@
-cbuffer cbPerObject : register(b2)
+cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
 };
@@ -11,10 +11,13 @@ cbuffer cbPass : register(b1)
     float4x4 gInvProj;
     float4x4 gViewProj;
     float4x4 gInvViewProj;
+    
     float3 gEyePos;
     float padding1;
+    
     float2 gRenderTargetSize;
     float2 gInvRenderTargetSize;
+    
     float gNearZ;
     float gFarZ;
     float gTotalTime;

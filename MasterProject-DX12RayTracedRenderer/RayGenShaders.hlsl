@@ -20,6 +20,40 @@ float3 linearToSrgb(float3 c)
     return srgb;
 }
 
+float4 LightingCalculation(float4 albedo, float3 normal)
+{
+    //Settings to shift into ConstantBuffer at some point
+    const float3 lightPos = { 0.5f, 0.5f, -0.5f };
+    const float4 lightDiffuseColour = { 0.5f, 0.5f, 0.2f, 1.0f };
+    const float4 lightAmbientColour = { 0.5f, 0.5f, 0.2f, 1.0f };
+    const float4 lightSpecularColour = { 1.0f, 1.0f, 1.0f, 1.0f };
+    const float diffuseCoef = 0.9f;
+    const float specCoef = 0.7f;
+    const float specPower = 50.0f;
+    
+    
+    float4 finalColour = albedo;
+    
+    float hitT = RayTCurrent();
+    float3 rayDirWorld = WorldRayDirection();
+    float3 rayOriginWorld = WorldRayOrigin();
+    float3 posWorld = rayOriginWorld + hitT * rayDirWorld;
+    float3 rayToLight = normalize(posWorld - lightPos);
+    
+    float norDotLight = saturate(dot(-rayToLight, normal));
+    float4 diffuse = diffuseCoef * norDotLight * lightDiffuseColour * albedo;
+    
+    float3 reflectedRayToLight = normalize(reflect(rayToLight, normal));
+    float4 specPow = pow(saturate(dot(reflectedRayToLight, normalize(-WorldRayDirection()))), specPower);
+    float4 specColour = specCoef * specPow * lightSpecularColour;
+    
+    float4 ambientColourMin = lightAmbientColour - 0.15;
+    float4 ambientColour = albedo * lerp(ambientColourMin, lightAmbientColour, norDotLight);
+    finalColour = ambientColour + diffuse + specColour;
+    
+    return finalColour;
+}
+
 struct RayPayload
 {
     float3 color;
@@ -45,7 +79,7 @@ void RayGen()
     ray.TMax = 100000;
 
     RayPayload payload;
-    TraceRay(gRtScene, 0 /*rayFlags*/, 0xFF, 0 /* ray index*/, 2, 0, ray, payload);
+    TraceRay(gRtScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES /*rayFlags*/, 0xFF, 0 /* ray index*/, 2, 0, ray, payload);
     float3 col = linearToSrgb(payload.color);
     gOutput[launchIndex.xy] = float4(col, 1);
 }
@@ -61,6 +95,8 @@ void Hit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr
 {
     float3 barycentrics = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
 
+    float4 triAlbedo = { gTriangleColour1 * barycentrics.x + gTriangleColour2 * barycentrics.y + gTriangleColour3 * barycentrics.z, 1.0f };
+    
     payload.color = gTriangleColour1 * barycentrics.x + gTriangleColour2 * barycentrics.y + gTriangleColour3 * barycentrics.z;
 }
 

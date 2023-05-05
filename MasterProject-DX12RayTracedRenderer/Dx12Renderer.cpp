@@ -192,15 +192,20 @@ void Dx12Renderer::CheckRaytracingSupport()
 
 void Dx12Renderer::CreateAccelerationStructures()
 {
-    mVertexBuffer[0] = CreateTriangleVB(mD3DDevice.Get());
-    mVertexBuffer[1] = CreatePlaneVB(mD3DDevice.Get());
+    int index = 0;
+    CreateTriangleVB(mD3DDevice.Get(), mVertexBuffer->GetAddressOf(), mIndexBuffer->GetAddressOf(), 0);
+    CreatePlaneVB(mD3DDevice.Get(), mVertexBuffer->GetAddressOf(), mIndexBuffer->GetAddressOf(), 1, 100.0f, 100.0f, -1.0f);
+    CreateCubeVB(mD3DDevice.Get(), mVertexBuffer->GetAddressOf(), mIndexBuffer->GetAddressOf(), 2, 0.5f, 0.5f, 0.5f);
     AccelerationStructBuffers botLevelBuffers[2];
 
-    const uint32_t vertexCount[] = { 3, 6 };
-    botLevelBuffers[0] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, 2);
+    const uint32_t vertexCount[] = { 3, 4, 8 };
+    const uint32_t indexCount[] = { 3, 6, 36 };
+    botLevelBuffers[0] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, mIndexBuffer->GetAddressOf(), indexCount, 3);
     mBotLvlAS[0] = botLevelBuffers[0].pResult;
-    botLevelBuffers[1] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, 1);
+    botLevelBuffers[1] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, mIndexBuffer->GetAddressOf(), indexCount, 1);
     mBotLvlAS[1] = botLevelBuffers[1].pResult;
+    //botLevelBuffers[2] = CreateBottomLevelAS(mD3DDevice.Get(), mCommandList.Get(), mVertexBuffer->GetAddressOf(), vertexCount, mIndexBuffer->GetAddressOf(), indexCount, 1);
+    //mBotLvlAS[2] = botLevelBuffers[2].pResult;
 
     BuildTopLevelAS(mD3DDevice.Get(), mCommandList.Get(), mBotLvlAS->GetAddressOf(), mTlasSize, 0, false, mTopLvlBuffers);
 
@@ -315,6 +320,7 @@ void Dx12Renderer::CreateShaderTable()
        Entry 5,6 - Hit program plane
        Entry 7,8 - Hit program tri 1
        Entry 9,10 - Hit program tri 2
+       Entry 11,12 - Hit Program cube
        All entries in the shader-table must have the same size, so we will choose it base on the largest required entry.
        The ray-gen program requires the largest entry - sizeof(program identifier) + 8 bytes for a descriptor-table.
        The entry size must be aligned up to D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT
@@ -324,7 +330,7 @@ void Dx12Renderer::CreateShaderTable()
     mShaderTableEntrySize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
     mShaderTableEntrySize += 8; // The ray-gen's descriptor table
     mShaderTableEntrySize = Utility::RoundUp(mShaderTableEntrySize, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-    uint32_t shaderTableSize = mShaderTableEntrySize * 11;
+    uint32_t shaderTableSize = mShaderTableEntrySize * 13;
 
     // For simplicity, we create the shader-table on the upload heap. You can also create it on the default heap
     mShaderTable = CreateBuffer(mD3DDevice.Get(), shaderTableSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
@@ -388,6 +394,17 @@ void Dx12Renderer::CreateShaderTable()
     //Entry 10 - tri 2 shadow ray hit program
     uint8_t* pHitEntry10 = pData + mShaderTableEntrySize * 10;
     memcpy(pHitEntry10, pRtsoProps->GetShaderIdentifier(SHADOW_HIT_GROUP), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
+
+    //Entry 11
+    uint8_t* pHitEntry11 = pData + mShaderTableEntrySize * 11; // +2 skips the ray-gen and miss entries
+    memcpy(pHitEntry11, pRtsoProps->GetShaderIdentifier(TRI_HIT_GROUP), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
+    uint8_t* pCBDesc3 = pHitEntry11 + D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
+    assert(((uint64_t)pCBDesc3 % 8) == 0);
+    *(D3D12_GPU_VIRTUAL_ADDRESS*)pCBDesc3 = mConstantBufferRT[0]->GetGPUVirtualAddress();
+
+    //Entry 12 - tri 0 shadow ray hit program
+    uint8_t* pHitEntry12 = pData + mShaderTableEntrySize * 12;
+    memcpy(pHitEntry12, pRtsoProps->GetShaderIdentifier(SHADOW_HIT_GROUP), D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
 
     // Unmap
     mShaderTable->Unmap(0, nullptr);
@@ -594,8 +611,10 @@ void Dx12Renderer::Draw(const Timer gameTimer)
         BuildTopLevelAS(mD3DDevice.Get(), mCommandList.Get(), mBotLvlAS->GetAddressOf(), mTlasSize, mRotation, true, mTopLvlBuffers);
         mRotation += 0.5f * gameTimer.FrameTime();
 
-        mCurrFrameResourceRT->fence = ++mCurrFence;
-        mCommandQueue->Signal(mFence.Get(), mCurrFence);
+        FlushCommandQueue();
+
+        //mCurrFrameResourceRT->fence = ++mCurrFence;
+        //mCommandQueue->Signal(mFence.Get(), mCurrFence);
 
         barrier = CD3DX12_RESOURCE_BARRIER::Transition(mOutputResource.Get(),
             D3D12_RESOURCE_STATE_COPY_SOURCE,
@@ -1084,6 +1103,9 @@ void Dx12Renderer::BuildPSO()
     opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     opaquePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+    opaquePsoDesc.RasterizerState.MultisampleEnable = m4xMSAAState;
+    opaquePsoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+    opaquePsoDesc.RasterizerState.AntialiasedLineEnable = m4xMSAAState;
     opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     opaquePsoDesc.SampleMask = UINT_MAX;
@@ -1094,6 +1116,7 @@ void Dx12Renderer::BuildPSO()
     opaquePsoDesc.SampleDesc.Quality = m4xMSAAState ? (m4xMSAAQuality - 1) : 0;
     opaquePsoDesc.DSVFormat = mDepthStencilFormat;
     ThrowIfFailed(mD3DDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPsos["opaque"])));
+
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC opaqueWireframePsoDesc = opaquePsoDesc;
     opaqueWireframePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
@@ -1365,50 +1388,107 @@ ID3D12Resource* Dx12Renderer::CreateBuffer(ID3D12Device5* device, uint64_t size,
     return buffer;
 }
 
-ID3D12Resource* Dx12Renderer::CreateTriangleVB(ID3D12Device5* device)
+void Dx12Renderer::CreateTriangleVB(ID3D12Device5* device, ID3D12Resource* vertexBuff[], ID3D12Resource* indexBuff[], int index)
 {
-    const DirectX::XMFLOAT3 vertices[] =
+    const RTVertexBufferLayout vertices[] =
     {
-        DirectX::XMFLOAT3(0,          1,  0),
-        DirectX::XMFLOAT3(0.866f,  -0.5f, 0),
-        DirectX::XMFLOAT3(-0.866f, -0.5f, 0),
+        RTVertexBufferLayout{ DirectX::XMFLOAT3(0,          1,  0), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f)},
+        RTVertexBufferLayout{ DirectX::XMFLOAT3(0.866f,  -0.5f, 0), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f)},
+        RTVertexBufferLayout{ DirectX::XMFLOAT3(-0.866f, -0.5f, 0), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f)},
+    };  
+
+    const int indices[] = {
+        0, 1, 2
     };
 
-    ID3D12Resource* buffer = CreateBuffer(device, sizeof(vertices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    vertexBuff[index] = CreateBuffer(device, sizeof(vertices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
     uint8_t* data;
-    buffer->Map(0, nullptr, (void**)&data);
+    vertexBuff[index]->Map(0, nullptr, (void**)&data);
     memcpy(data, vertices, sizeof(vertices));
-    buffer->Unmap(0, nullptr);
-    return buffer;
+    vertexBuff[index]->Unmap(0, nullptr);
+
+    indexBuff[index] = CreateBuffer(device, sizeof(indices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    uint8_t* data1;
+    indexBuff[index]->Map(0, nullptr, (void**)&data1);
+    memcpy(data1, indices, sizeof(indices));
+    indexBuff[index]->Unmap(0, nullptr);
 }
 
-ID3D12Resource* Dx12Renderer::CreateCubeVB(ID3D12Device5* device)
+void Dx12Renderer::CreateCubeVB(ID3D12Device5* device, ID3D12Resource* vertexBuff[], ID3D12Resource* indexBuff[], int index, float width, float height, float length)
 {
-    return nullptr;
-}
-
-ID3D12Resource* Dx12Renderer::CreatePlaneVB(ID3D12Device5* device)
-{
-    const DirectX::XMFLOAT3 vertices[] =
+    const RTVertexBufferLayout vertices[] =
     {
-        DirectX::XMFLOAT3(-100.0f, -1.0f,  -2.0f),
-        DirectX::XMFLOAT3(100.0f, -1.0f, 100.0f),
-        DirectX::XMFLOAT3(-100.0f, -1.0f, 100.0f),
-
-        DirectX::XMFLOAT3(-100.0f, -1.0f, -2.0f),
-        DirectX::XMFLOAT3( 100.0f, -1.0f, -2.0f),
-        DirectX::XMFLOAT3( 100.0f, -1.0f, 100.0f),
+      RTVertexBufferLayout{DirectX::XMFLOAT3(-width, -height, -length), DirectX::XMFLOAT3(-0.577350f, -0.577350f, -0.577350f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(-width, +height, -length), DirectX::XMFLOAT3(-0.408248f,  0.816497f, -0.408248f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(+width, +height, -length), DirectX::XMFLOAT3( 0.408248f,  0.408248f, -0.816497f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(+width, -height, -length), DirectX::XMFLOAT3( 0.816497f, -0.408248f, -0.408248f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(-width, -height, +length), DirectX::XMFLOAT3(-0.408248f, -0.408248f,  0.816497f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(-width, +height, +length), DirectX::XMFLOAT3(-0.816497f,  0.408248f,  0.408248f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(+width, +height, +length), DirectX::XMFLOAT3( 0.577350f,  0.577350f,  0.577350f)},
+      RTVertexBufferLayout{DirectX::XMFLOAT3(+width, -height, +length), DirectX::XMFLOAT3( 0.408248f, -0.816497f,  0.408248f)},
     };
 
-    ID3D12Resource* buffer = CreateBuffer(device, sizeof(vertices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    const int indices[] = {
+        0, 1, 2,
+        0, 2, 3,
+
+        4, 6, 5,
+        4, 7, 6,
+
+        4, 5, 1,
+        4, 1, 0,
+
+        3, 2, 6,
+        3, 6, 7,
+
+        1, 5, 6,
+        1, 6, 2,
+
+        4, 0, 3,
+        4, 3, 7
+    };
+
+    vertexBuff[index] = CreateBuffer(device, sizeof(vertices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
     uint8_t* data;
-    buffer->Map(0, nullptr, (void**)&data);
+    vertexBuff[index]->Map(0, nullptr, (void**)&data);
     memcpy(data, vertices, sizeof(vertices));
-    buffer->Unmap(0, nullptr);
-    return buffer;
+    vertexBuff[index]->Unmap(0, nullptr);
+
+    indexBuff[index] = CreateBuffer(device, sizeof(indices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    uint8_t* data1;
+    indexBuff[index]->Map(0, nullptr, (void**)&data1);
+    memcpy(data1, indices, sizeof(indices));
+    indexBuff[index]->Unmap(0, nullptr);
 }
 
-AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], uint32_t geomCount)
+void Dx12Renderer::CreatePlaneVB(ID3D12Device5* device, ID3D12Resource* vertexBuff[], ID3D12Resource* indexBuff[], int index, float width, float length, float heightOffset)
+{
+    const RTVertexBufferLayout vertices[] =
+    {
+        RTVertexBufferLayout{DirectX::XMFLOAT3(-width, heightOffset, -length), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f)},
+        RTVertexBufferLayout{DirectX::XMFLOAT3( width, heightOffset, -length), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f)},
+        RTVertexBufferLayout{DirectX::XMFLOAT3( width, heightOffset,  length), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f)},
+        RTVertexBufferLayout{DirectX::XMFLOAT3(-width, heightOffset,  length), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f)},
+    };
+
+    const int indices[] = {
+        1, 0, 2, 2, 0, 3
+    };
+
+    vertexBuff[index] = CreateBuffer(device, sizeof(vertices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    uint8_t* data;
+    vertexBuff[index]->Map(0, nullptr, (void**)&data);
+    memcpy(data, vertices, sizeof(vertices));
+    vertexBuff[index]->Unmap(0, nullptr);
+
+    indexBuff[index] = CreateBuffer(device, sizeof(indices), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, kUploadHeapProps);
+    uint8_t* data1;
+    indexBuff[index]->Map(0, nullptr, (void**)&data1);
+    memcpy(data1, indices, sizeof(indices));
+    indexBuff[index]->Unmap(0, nullptr);
+}
+
+AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, ID3D12Resource* vertBuff[], const uint32_t vertexCount[], ID3D12Resource* indexBuff[], const uint32_t indexCount[], uint32_t geomCount)
 {
     std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDesc;
     geomDesc.resize(geomCount);
@@ -1416,9 +1496,13 @@ AccelerationStructBuffers Dx12Renderer::CreateBottomLevelAS(ID3D12Device5* devic
     for (uint32_t i = 0; i < geomCount; i++) {
         geomDesc[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
         geomDesc[i].Triangles.VertexBuffer.StartAddress = vertBuff[i]->GetGPUVirtualAddress();
-        geomDesc[i].Triangles.VertexBuffer.StrideInBytes = sizeof(DirectX::XMFLOAT3);
+        geomDesc[i].Triangles.VertexBuffer.StrideInBytes = sizeof(RTVertexBufferLayout);
         geomDesc[i].Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
         geomDesc[i].Triangles.VertexCount = vertexCount[i];
+        geomDesc[i].Triangles.IndexBuffer = indexBuff[i]->GetGPUVirtualAddress();
+        geomDesc[i].Triangles.IndexCount = indexCount[i];
+        geomDesc[i].Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+
         geomDesc[i].Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
     }
 
