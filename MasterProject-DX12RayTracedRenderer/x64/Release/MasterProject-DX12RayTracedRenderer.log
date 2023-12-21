@@ -1,6 +1,0 @@
-﻿  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_ps.cso
-  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\cube_vs.cso
-  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\Miss.cso
-  compilation object save succeeded; see D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\x64\Release\RayGen.cso
-  The system cannot find the path specified.
-D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\packages\Microsoft.Windows.CppWinRT.2.0.220531.1\build\native\Microsoft.Windows.CppWinRT.targets(661,9): error MSB3073: The command ""D:\Users\jliddiard\Documents\GitHub\MasterProject-DX12RayTracedRenderer\packages\Microsoft.Windows.CppWinRT.2.0.220531.1\build\native\..\..\bin\"cppwinrt @"x64\Release\MasterProject-DX12RayTracedRenderer.vcxproj.cppwinrt_plat.rsp"" exited with code 3.
