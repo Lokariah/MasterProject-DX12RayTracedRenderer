@@ -2,10 +2,10 @@
 
 float4 PS(blinnPhongLightingPixelShaderInput pIn) : SV_TARGET
 {
-	// Renormalise pixel normal because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
+	// Renormalise pixel normal because interpolation from the vertex shader can introduce scaling
     float3 worldNormal = normalize(pIn.worldNormal);
 	 
-	// Blinn-Phong lighting using a single light (same as 2nd year Graphics module)
+	// Blinn-Phong lighting using a single light
     float3 lightVector = gLight1Dir - pIn.worldPos; // Vector to light
     float lightDistance = length(lightVector); // Distance to light
     float3 lightNormal = lightVector / lightDistance; // Normal to light

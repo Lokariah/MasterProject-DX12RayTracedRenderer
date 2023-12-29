@@ -21,9 +21,11 @@ namespace Dx12MasterProject {
 	public:
 		std::vector<vertexConsts> vertices;
 		std::vector<uint16_t> indices;
-		Mesh(std::vector<vertexConsts> Vertices, std::vector<uint16_t> Indices) {
+		std::string name;
+		Mesh(std::vector<vertexConsts> Vertices, std::vector<uint16_t> Indices, std::string Name) {
 			vertices = Vertices;
 			indices = Indices;
+			name = Name;
 		}
 	};
 

@@ -32,6 +32,7 @@ namespace Dx12MasterProject {
 	struct vertexConsts {
 		DirectX::XMFLOAT3 pos;
 		DirectX::XMFLOAT3 norm;
+		DirectX::XMFLOAT2 uv;
 		DirectX::XMFLOAT4 colour;
 	};
 

@@ -41,6 +41,7 @@ struct vertexIn
 {
     float3 posL : POSITION;
     float3 posN : NORMAL;
+    float2 uv : TEXCOORD;
     float4 colour : COLOUR;
 };
 

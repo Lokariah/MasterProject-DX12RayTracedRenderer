@@ -222,7 +222,8 @@ namespace Dx12MasterProject {
 		void BuildConstantBuffers();
 		void BuildRootSignature();
 		void BuildShadersAndInputLayout();
-		void BuildBoxGeometry();
+		void LoadModel(std::string filePathName);
+		//void BuildModelGeometry();
 		void BuildPSO();
 		void BuildFrameResources();
 		void BuildRenderItems();
@@ -250,7 +251,7 @@ namespace Dx12MasterProject {
 		bool m4xMSAAState = false;
 
 		bool mVSync = false;
-		bool mRaytracing = true;
+		bool mRaytracing = false;
 
 		const int mRTInstanceCount = 3;
 
@@ -289,8 +290,8 @@ namespace Dx12MasterProject {
 
 		bool lightColourIncrease = false;
 
-		std::unique_ptr<MeshGeometry> mBoxGeometry;
-		std::unique_ptr<Model> tempModel;
+		//std::unique_ptr<MeshGeometry> mMeshGeometry;
+		//std::unique_ptr<Model> tempModel;
 		ComPtr<ID3DBlob> mvsByteCode;
 		ComPtr<ID3DBlob> mpsByteCode;
 
@@ -299,7 +300,7 @@ namespace Dx12MasterProject {
 		int mCurrFrameResourceIndex = 0;
 
 		Camera mainCamera;
-		float cameraMoveSpeed = 10.0f;
+		float cameraMoveSpeed = 50.0f;
 		float cameraRotateSpeed = 2.0f;
 
 		POINT mLastMousePos;
