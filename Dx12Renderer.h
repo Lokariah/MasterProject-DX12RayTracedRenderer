@@ -8,22 +8,44 @@
 #include "Camera.h"
 
 namespace Dx12MasterProject {
-	const int gNumFrameResources = 3;
 
-	struct RenderItem {
-		RenderItem() = default;
+	//Model Restructure.
+	/*
+	
+	struct Model{
+		Model Name
+		World Matrix
+		Meshes
+		frames Dirty
+	}
 
-		DirectX::XMFLOAT4X4 world = IDENTITY_MATRIX;
-		int numFramesDirty = gNumFrameResources;
-		UINT objCBIndex = -1;
-		MeshGeometry* meshGeo = nullptr;
+	struct Mesh{
+		Mesh Name
+		Individual Position Matrix
+		Vertices
+		Indices
+		Textures
+		Render Config
+	}
 
-		D3D12_PRIMITIVE_TOPOLOGY primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	-
 
-		UINT indexCount = 0;
-		UINT startIndexLocation = 0;
-		int baseVertexLocation = 0;
-	};
+	*/
+
+	//struct RenderItem {
+	//	RenderItem() = default;
+
+	//	DirectX::XMFLOAT4X4 world = IDENTITY_MATRIX;
+	//	int numFramesDirty = gNumFrameResources;
+	//	UINT objCBIndex = -1;
+	//	MeshGeometry* meshGeo = nullptr;
+
+	//	D3D12_PRIMITIVE_TOPOLOGY primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	//	UINT indexCount = 0;
+	//	UINT startIndexLocation = 0;
+	//	int baseVertexLocation = 0;
+	//};
 
 	struct AccelerationStructBuffers {
 		ComPtr<ID3D12Resource> pScratch;
@@ -222,12 +244,13 @@ namespace Dx12MasterProject {
 		void BuildConstantBuffers();
 		void BuildRootSignature();
 		void BuildShadersAndInputLayout();
-		void LoadModel(std::string filePathName);
+		void LoadModel(std::string filePathName, DirectX::XMFLOAT3 pos);
 		//void BuildModelGeometry();
 		void BuildPSO();
 		void BuildFrameResources();
-		void BuildRenderItems();
-		void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& rendItems);
+		void ProcessMeshes();
+		//void BuildRenderItems();
+		void DrawRenderItems(ID3D12GraphicsCommandList* cmdList/*, const std::vector<RenderItem*>& rendItems*/);
 
 
 		float GetAspectRatio();
@@ -235,7 +258,7 @@ namespace Dx12MasterProject {
 		D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
 		D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
-		ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
+		//ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer);
 		void CalculateFrameStats();
 
 		static Dx12Renderer* mApp;
@@ -277,12 +300,13 @@ namespace Dx12MasterProject {
 		ComPtr<ID3D12DescriptorHeap>		mSRVDescHeap = nullptr;
 
 
-		std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeos;
+		std::unordered_map<std::string, std::unique_ptr<Model>> mModels; //Was mGeos
 		std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 		std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPsos;
 		std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
-		std::vector<std::unique_ptr<RenderItem>> mAllRendItems;
-		std::vector<RenderItem*> mOpaqueRendItems;
+		std::vector<Mesh*> mAllMeshes;
+		//std::vector<std::unique_ptr<Mesh>> mAllRendItems;
+		//std::vector<Mesh*> mOpaqueRendItems;
 
 		PassConsts mMainPassCB;
 		UINT mPassCBVOffset = 0;

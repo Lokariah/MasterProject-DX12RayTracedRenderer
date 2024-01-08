@@ -3,7 +3,10 @@
 #include "UploadBuffer.h"
 
 namespace Dx12MasterProject {
-	struct ObjectsConsts {
+	const int gNumFrameResources = 3;
+
+
+	struct ObjectsConsts {															   //Make it create on ObjectConsts for each mesh and have shaders grab the right one.
 		DirectX::XMFLOAT4X4 world = IDENTITY_MATRIX;
 	};
 

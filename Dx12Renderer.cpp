@@ -8,7 +8,7 @@ Dx12Renderer* Dx12Renderer::mApp = nullptr;
 Dx12Renderer* renderer;
 static dxc::DxcDllSupport gDxcDllHelper;
 
-
+//Engine crashes with multiple models due to objects being deleted that are still in use for the command list. Look into what attributes get reused per model.
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd) {
 
@@ -100,9 +100,12 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
     else {
         BuildRootSignature();
         BuildShadersAndInputLayout();
-        LoadModel(std::string("Models/Reptile Alien Creature.fbx"));
+        LoadModel(std::string("Models/Emily_T-Pose.fbx"), { 150.0f, 0.0f, 0.0f });
+        LoadModel(std::string("Models/Reptile Alien Creature.fbx"), {0.0f, 0.0f, 0.0f});
+        LoadModel(std::string("Models/penguin.fbx"), { -150.0f, 0.0f, 0.0f });
         //BuildModelGeometry();
-        BuildRenderItems();
+        //BuildRenderItems();
+        ProcessMeshes();
         BuildFrameResources();
         BuildDescriptorHeaps();
         BuildConstantBuffers();
@@ -112,7 +115,7 @@ bool Dx12Renderer::Initialise(HINSTANCE hInstance, int nShowCmd)
         ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
         mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
-        DirectX::XMFLOAT3 temp = { 1.0f, 0.0f, -10.0f };
+        DirectX::XMFLOAT3 temp = { 1.0f, 0.0f, -500.0f };
         DirectX::XMFLOAT3 temp2 = { 0.0f, 0.0f, 0.0f };
         DirectX::XMFLOAT3 temp3 = { 0.0f, 1.0f, 0.0f };
 
@@ -288,7 +291,7 @@ void Dx12Renderer::Draw(const Timer gameTimer)
 
         auto passCB = mCurrFrameResource->passCB->Resource();
         mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
-        DrawRenderItems(mCommandList.Get(), mOpaqueRendItems);
+        DrawRenderItems(mCommandList.Get());
         barrier = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PRESENT);
@@ -383,7 +386,7 @@ void Dx12Renderer::UpdateCamera(const Timer gameTimer)
 void Dx12Renderer::UpdateObjectsCB(const Timer gameTimer)
 {
     auto currObjCB = mCurrFrameResource->objectCB.get();
-    for (auto& e : mAllRendItems) {
+    for (auto& e : mAllMeshes) {
         if (e->numFramesDirty > 0) {
             DirectX::XMMATRIX world = DirectX::XMLoadFloat4x4(&e->world);
 
@@ -470,14 +473,14 @@ void Dx12Renderer::Update(const Timer gameTimer)
         }
 
         //Very Bad!!! Just rotates Monkey but only works if only model.
-        DirectX::XMMATRIX world = DirectX::XMLoadFloat4x4(&mOpaqueRendItems[0]->world);
-
+        DirectX::XMMATRIX world = DirectX::XMLoadFloat4x4(&mModels["Reptile Alien Creature"].get()->world);
+        
         DirectX::XMMATRIX newWorld = DirectX::XMMatrixIdentity()
             * DirectX::XMMatrixRotationY(1.0f * ft)
             * world;
 
-        DirectX::XMStoreFloat4x4(&mOpaqueRendItems[0]->world, newWorld);
-        mOpaqueRendItems[0]->numFramesDirty++;
+        DirectX::XMStoreFloat4x4(&mModels["Reptile Alien Creature"].get()->world, newWorld);
+        mModels["Reptile Alien Creature"].get()->CalculateMeshesPositions();
 
         UpdateObjectsCB(gameTimer);
         UpdateMainPassCB(gameTimer);
@@ -640,7 +643,7 @@ void Dx12Renderer::FlushCommandQueue()
 
 void Dx12Renderer::BuildDescriptorHeaps()
 {
-    UINT objCount = (UINT)mOpaqueRendItems.size();
+    UINT objCount = (UINT)mAllMeshes.size();
     UINT numDescriptors = (objCount + 1) * gNumFrameResources;
     mPassCBVOffset = objCount * gNumFrameResources;
 
@@ -655,7 +658,7 @@ void Dx12Renderer::BuildDescriptorHeaps()
 void Dx12Renderer::BuildConstantBuffers()
 {
     UINT objCBByteSize = Utility::CalcConstantBufferByteSize(sizeof(ObjectsConsts));
-    UINT objCount = (UINT)mOpaqueRendItems.size();
+    UINT objCount = (UINT)mAllMeshes.size();
 
     for (int frameIndex = 0; frameIndex < gNumFrameResources; ++frameIndex) {
         auto objectCB = mFrameResources[frameIndex]->objectCB->Resource();
@@ -735,83 +738,13 @@ void Dx12Renderer::BuildShadersAndInputLayout()
     };
 }
 
-void  Dx12Renderer::LoadModel(std::string filePathName) {
-    std::unique_ptr<MeshGeometry> mMeshGeometry;
+void Dx12Renderer::LoadModel(std::string filePathName, DirectX::XMFLOAT3 pos) {
     std::unique_ptr<Model> tempModel;
 
-    tempModel = std::make_unique<Model>(filePathName);
-
-    for (int i = 0; i < tempModel->meshes.size(); i++) {
-        std::vector<vertexConsts> vertices;
-        vertices = tempModel->meshes[i].vertices;
-        std::vector<std::uint16_t> indices;
-        indices = tempModel->meshes[i].indices;
-
-        const UINT vbByteSize = (UINT)vertices.size() * sizeof(vertexConsts);
-        const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
-
-        mMeshGeometry = std::make_unique<MeshGeometry>();
-        mMeshGeometry->name = tempModel->meshes[i].name;
-
-        ThrowIfFailed(D3DCreateBlob(vbByteSize, &mMeshGeometry->vertexBufferCPU));
-        CopyMemory(mMeshGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
-
-        ThrowIfFailed(D3DCreateBlob(ibByteSize, &mMeshGeometry->indexBufferCPU));
-        CopyMemory(mMeshGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
-
-        mMeshGeometry->vertexBufferGPU = CreateDefaultBuffer(mD3DDevice.Get(), mCommandList.Get(), vertices.data(), vbByteSize, mMeshGeometry->vertexBufferUploader);
-        mMeshGeometry->indexBufferGPU = CreateDefaultBuffer(mD3DDevice.Get(), mCommandList.Get(), indices.data(), ibByteSize, mMeshGeometry->indexBufferUploader);
-
-        mMeshGeometry->vertexByteStride = sizeof(vertexConsts);
-        mMeshGeometry->vertexBufferByteSize = vbByteSize;
-        mMeshGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
-        mMeshGeometry->indexBufferByteSize = ibByteSize;
-
-        SubmeshGeometry subMesh;
-        subMesh.IndexCount = (UINT)indices.size();
-        subMesh.StartIndexLocation = 0;
-        subMesh.BaseVertexLocation = 0;
-
-        mMeshGeometry->drawArgs[mMeshGeometry->name] = subMesh;
-        mGeos[mMeshGeometry->name] = std::move(mMeshGeometry);
-    }
+    tempModel = std::make_unique<Model>(filePathName, pos);
+    
+    mModels[tempModel->name] = std::move(tempModel);
 }
-//
-//void Dx12Renderer::BuildModelGeometry()
-//{
-//    std::vector<vertexConsts> vertices;
-//    vertices = tempModel->meshes[0].vertices;
-//    std::vector<std::uint16_t> indices;
-//    indices = tempModel->meshes[0].indices;
-//
-//    const UINT vbByteSize = (UINT)vertices.size() * sizeof(vertexConsts);
-//    const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
-//
-//    mBoxGeometry = std::make_unique<MeshGeometry>();
-//    mBoxGeometry->name = "shapeGeo";
-//
-//    ThrowIfFailed(D3DCreateBlob(vbByteSize, &mBoxGeometry->vertexBufferCPU));
-//    CopyMemory(mBoxGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
-//
-//    ThrowIfFailed(D3DCreateBlob(ibByteSize, &mBoxGeometry->indexBufferCPU));
-//    CopyMemory(mBoxGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
-//
-//    mBoxGeometry->vertexBufferGPU = CreateDefaultBuffer(mD3DDevice.Get(), mCommandList.Get(), vertices.data(), vbByteSize, mBoxGeometry->vertexBufferUploader);
-//    mBoxGeometry->indexBufferGPU  = CreateDefaultBuffer(mD3DDevice.Get(), mCommandList.Get(), indices.data(),  ibByteSize, mBoxGeometry->indexBufferUploader);
-//
-//    mBoxGeometry->vertexByteStride = sizeof(vertexConsts);
-//    mBoxGeometry->vertexBufferByteSize = vbByteSize;
-//    mBoxGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
-//    mBoxGeometry->indexBufferByteSize = ibByteSize;
-//
-//    SubmeshGeometry subMesh;
-//    subMesh.IndexCount = (UINT)indices.size();
-//    subMesh.StartIndexLocation = 0;
-//    subMesh.BaseVertexLocation = 0;
-//
-//    mBoxGeometry->drawArgs["box"] = subMesh;
-//    mGeos[mBoxGeometry->name] = std::move(mBoxGeometry);
-//}
 
 void Dx12Renderer::BuildPSO()
 {
@@ -853,7 +786,7 @@ void Dx12Renderer::BuildPSO()
 void Dx12Renderer::BuildFrameResources()
 {
     for (int i = 0; i < gNumFrameResources; ++i) {
-        mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, (UINT)mAllRendItems.size()));
+        mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, (UINT)mAllMeshes.size()));
     }
 }
 
@@ -864,46 +797,77 @@ void Dx12Renderer::BuildFrameResourcesRT()
     }
 }
 
-void Dx12Renderer::BuildRenderItems()
-{
-    for (auto& i : mGeos) {
-        auto modelRendItem = std::make_unique<RenderItem>();
-        DirectX::XMStoreFloat4x4(&modelRendItem->world, DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f) * DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f));
-        modelRendItem->objCBIndex = 0;
-        modelRendItem->meshGeo = i.second.get();
-        modelRendItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-        modelRendItem->indexCount = modelRendItem->meshGeo->drawArgs[modelRendItem->meshGeo->name].IndexCount;
-        modelRendItem->startIndexLocation = modelRendItem->meshGeo->drawArgs[modelRendItem->meshGeo->name].StartIndexLocation;
-        modelRendItem->baseVertexLocation = modelRendItem->meshGeo->drawArgs[modelRendItem->meshGeo->name].BaseVertexLocation;
-        mAllRendItems.push_back(std::move(modelRendItem));
+void Dx12Renderer::ProcessMeshes() {
+    for (auto& i : mModels) {
+        i.second.get()->BuildModel(mD3DDevice.Get(), mCommandList.Get());
+        i.second.get()->CalculateMeshesPositions();
+        for (int j = 0; j < i.second.get()->meshes.size(); j++) {
+            mAllMeshes.push_back(&i.second.get()->meshes[j]);
+            mAllMeshes.at(mAllMeshes.size() - 1)->objCBIndex = mAllMeshes.size() - 1;
+        }
     }
-    for (auto& e : mAllRendItems) mOpaqueRendItems.push_back(e.get());
 }
 
-void Dx12Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& rendItems)
+//void Dx12Renderer::BuildRenderItems()                                                                                                                       //In theory this world be made redundant once Load models makes Models(render item)
+//{                                                                                                                                                           //as a output instead of just pushing geometry to be bundled here.
+//    for (auto& i : mGeos) {
+//        auto modelRendItem = std::make_unique<RenderItem>();
+//        DirectX::XMStoreFloat4x4(&modelRendItem->world, DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f) * DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+//        modelRendItem->objCBIndex = 0;
+//        modelRendItem->meshGeo = i.second.get();
+//        modelRendItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+//        modelRendItem->indexCount = modelRendItem->meshGeo->drawArgs[modelRendItem->meshGeo->name].IndexCount;
+//        modelRendItem->startIndexLocation = modelRendItem->meshGeo->drawArgs[modelRendItem->meshGeo->name].StartIndexLocation;
+//        modelRendItem->baseVertexLocation = modelRendItem->meshGeo->drawArgs[modelRendItem->meshGeo->name].BaseVertexLocation;
+//        mAllRendItems.push_back(std::move(modelRendItem));
+//    }
+//    for (auto& e : mAllRendItems) mOpaqueRendItems.push_back(e.get());
+//}
+
+void Dx12Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList/*, const std::vector<RenderItem*>& rendItems*/)
 {
     UINT objCBByteSize = Utility::CalcConstantBufferByteSize(sizeof(ObjectsConsts));
     auto objectCB = mCurrFrameResource->objectCB->Resource();
 
-    for (size_t i = 0; i < rendItems.size(); ++i) {
-        auto ri = rendItems[i];
+    for (size_t i = 0; i < mAllMeshes.size(); ++i) {
+        auto mesh = mAllMeshes[i];
 
-        auto meshGeoVertexBufferView = ri->meshGeo->VertexBufferView();
+        auto meshGeoVertexBufferView = mesh->VertexBufferView();
         cmdList->IASetVertexBuffers(0, 1, &meshGeoVertexBufferView);
-        auto meshGeoIndexBufferView = ri->meshGeo->IndexBufferView();
+        auto meshGeoIndexBufferView = mesh->IndexBufferView();
         cmdList->IASetIndexBuffer(&meshGeoIndexBufferView);
-        cmdList->IASetPrimitiveTopology(ri->primitiveType);
+        cmdList->IASetPrimitiveTopology(mesh->primitiveType);
 
-        D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->objCBIndex * objCBByteSize;
+        D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + mesh->objCBIndex * objCBByteSize;
 
-        UINT cbvIndex = mCurrFrameResourceIndex * (UINT)mOpaqueRendItems.size() + ri->objCBIndex;
+        UINT cbvIndex = mCurrFrameResourceIndex * (UINT)mAllMeshes.size() + mesh->objCBIndex;
         auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
         cbvHandle.Offset(cbvIndex, mCBVSRVUAVDescriptorSize);
 
         //cmdList->SetGraphicsRootDescriptorTable(0, cbvHandle);
         cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
-        cmdList->DrawIndexedInstanced(ri->indexCount, 1, ri->startIndexLocation, ri->baseVertexLocation, 0);
+        cmdList->DrawIndexedInstanced(mesh->indexCount, 1, mesh->startIndexLocation, mesh->baseVertexLocation, 0);
     }
+
+    //for (size_t i = 0; i < rendItems.size(); ++i) {
+    //    auto ri = rendItems[i];
+
+    //    auto meshGeoVertexBufferView = ri->meshGeo->VertexBufferView();
+    //    cmdList->IASetVertexBuffers(0, 1, &meshGeoVertexBufferView);
+    //    auto meshGeoIndexBufferView = ri->meshGeo->IndexBufferView();
+    //    cmdList->IASetIndexBuffer(&meshGeoIndexBufferView);
+    //    cmdList->IASetPrimitiveTopology(ri->primitiveType);
+
+    //    D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->objCBIndex * objCBByteSize;
+
+    //    UINT cbvIndex = mCurrFrameResourceIndex * (UINT)mOpaqueRendItems.size() + ri->objCBIndex;
+    //    auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+    //    cbvHandle.Offset(cbvIndex, mCBVSRVUAVDescriptorSize);
+
+    //    //cmdList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+    //    cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
+    //    cmdList->DrawIndexedInstanced(ri->indexCount, 1, ri->startIndexLocation, ri->baseVertexLocation, 0);
+    //}
 }
 
 float Dx12Renderer::GetAspectRatio()
@@ -929,42 +893,42 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12Renderer::DepthStencilView() const
     return mDSVHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
-ComPtr<ID3D12Resource> Dx12Renderer::CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer)
-{
-    ComPtr<ID3D12Resource> defaultBuffer;
-    auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
-    ThrowIfFailed(device->CreateCommittedResource(
-        &heapProperties,
-        D3D12_HEAP_FLAG_NONE,
-        &bufferDesc,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
-
-    heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    ThrowIfFailed(device->CreateCommittedResource(
-        &heapProperties,
-        D3D12_HEAP_FLAG_NONE,
-        &bufferDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(uploadBuffer.GetAddressOf())));
-
-    D3D12_SUBRESOURCE_DATA subResourceData = {initData, byteSize, subResourceData.RowPitch};
-
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-        D3D12_RESOURCE_STATE_COMMON,
-        D3D12_RESOURCE_STATE_COPY_DEST);
-    mCommandList->ResourceBarrier(1, &barrier);
-    UpdateSubresources<1>(cmdList, defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subResourceData);
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        D3D12_RESOURCE_STATE_GENERIC_READ);
-    mCommandList->ResourceBarrier(1, &barrier);
-
-    return defaultBuffer;
-}
+//ComPtr<ID3D12Resource> Dx12Renderer::CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer)
+//{
+//    ComPtr<ID3D12Resource> defaultBuffer;
+//    auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+//    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
+//    ThrowIfFailed(device->CreateCommittedResource(
+//        &heapProperties,
+//        D3D12_HEAP_FLAG_NONE,
+//        &bufferDesc,
+//        D3D12_RESOURCE_STATE_COMMON,
+//        nullptr,
+//        IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
+//
+//    heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+//    ThrowIfFailed(device->CreateCommittedResource(
+//        &heapProperties,
+//        D3D12_HEAP_FLAG_NONE,
+//        &bufferDesc,
+//        D3D12_RESOURCE_STATE_GENERIC_READ,
+//        nullptr,
+//        IID_PPV_ARGS(uploadBuffer.GetAddressOf())));
+//
+//    D3D12_SUBRESOURCE_DATA subResourceData = {initData, byteSize, subResourceData.RowPitch};
+//
+//    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
+//        D3D12_RESOURCE_STATE_COMMON,
+//        D3D12_RESOURCE_STATE_COPY_DEST);
+//    cmdList->ResourceBarrier(1, &barrier);
+//    UpdateSubresources<1>(cmdList, defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subResourceData);
+//    barrier = CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
+//        D3D12_RESOURCE_STATE_COPY_DEST,
+//        D3D12_RESOURCE_STATE_GENERIC_READ);
+//    mCommandList->ResourceBarrier(1, &barrier);
+//
+//    return defaultBuffer;
+//}
 
 void Dx12Renderer::CalculateFrameStats()
 {
