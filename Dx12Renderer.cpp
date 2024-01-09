@@ -8,7 +8,6 @@ Dx12Renderer* Dx12Renderer::mApp = nullptr;
 Dx12Renderer* renderer;
 static dxc::DxcDllSupport gDxcDllHelper;
 
-//Engine crashes with multiple models due to objects being deleted that are still in use for the command list. Look into what attributes get reused per model.
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd) {
 
@@ -473,14 +472,14 @@ void Dx12Renderer::Update(const Timer gameTimer)
         }
 
         //Very Bad!!! Just rotates Monkey but only works if only model.
-        DirectX::XMMATRIX world = DirectX::XMLoadFloat4x4(&mModels["Reptile Alien Creature"].get()->world);
+        DirectX::XMMATRIX world = DirectX::XMLoadFloat4x4(&mModels["Emily_T-Pose"].get()->world);
         
         DirectX::XMMATRIX newWorld = DirectX::XMMatrixIdentity()
             * DirectX::XMMatrixRotationY(1.0f * ft)
             * world;
 
-        DirectX::XMStoreFloat4x4(&mModels["Reptile Alien Creature"].get()->world, newWorld);
-        mModels["Reptile Alien Creature"].get()->CalculateMeshesPositions();
+        DirectX::XMStoreFloat4x4(&mModels["Emily_T-Pose"].get()->world, newWorld);
+        mModels["Emily_T-Pose"].get()->CalculateMeshesPositions();
 
         UpdateObjectsCB(gameTimer);
         UpdateMainPassCB(gameTimer);

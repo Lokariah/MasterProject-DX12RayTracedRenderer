@@ -1,8 +1,8 @@
 ﻿  Model.cpp
 D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\Utility.h(125,56): warning C4838: conversion from 'UINT64' to 'LONG_PTR' requires a narrowing conversion
   Generating code
-  4 of 2036 functions ( 0.2%) were compiled, the rest were copied from previous compilation.
+  0 of 2036 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    3 functions had inline decision re-evaluated but remain unchanged
+    0 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   MasterProject-DX12RayTracedRenderer.vcxproj -> D:\Caitlynn\Documents\UniWork\Masters\MastersProject\MasterProject-DX12RayTracedRenderer\x64\Release\MasterProject-DX12RayTracedRenderer.exe
